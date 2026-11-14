@@ -317,3 +317,6 @@ html,body,button,a,input,select{touch-action:manipulation}
 .move-quality.brilliant{background:#c6a2f4;color:#311d4d}
 .replay-layout{display:grid!important;grid-template-columns:minmax(300px,1.05fr) minmax(300px,.95fr);align-items:start}
 @media(max-width:650px){.replay-layout{display:flex!important;flex-direction:column;align-items:stretch}}
+
+.panel#panel-dashboard .content-grid{grid-template-columns:1fr}
+.import-card #sync-message:empty{display:none}
