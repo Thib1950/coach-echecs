@@ -2,6 +2,7 @@ import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
 const $=id=>document.getElementById(id),USER="gone_1950";
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let database=[],dbError="",groups=[],currentKey=null,exercise=null;
+const glyph={wk:"♔",wq:"♕",wr:"♖",wb:"♗",wn:"♘",wp:"♙",bk:"♚",bq:"♛",br:"♜",bb:"♝",bn:"♞",bp:"♟"};
 const FR=[[/Sicilian Defense/gi,"Défense sicilienne"],[/French Defense/gi,"Défense française"],[/Caro-Kann Defense/gi,"Défense Caro-Kann"],[/King's Indian Defense/gi,"Défense est-indienne"],[/Queen's Gambit/gi,"Gambit dame"],[/King's Gambit/gi,"Gambit roi"],[/Ruy Lopez/gi,"Partie espagnole"],[/Italian Game/gi,"Partie italienne"],[/Scotch Game/gi,"Partie écossaise"],[/English Opening/gi,"Ouverture anglaise"],[/Scandinavian Defense/gi,"Défense scandinave"],[/Alekhine's Defense/gi,"Défense Alekhine"],[/Pirc Defense/gi,"Défense Pirc"],[/Dutch Defense/gi,"Défense hollandaise"],[/Slav Defense/gi,"Défense slave"],[/Nimzo-Indian Defense/gi,"Défense nimzo-indienne"],[/Grünfeld Defense/gi,"Défense Grünfeld"],[/Benoni Defense/gi,"Défense Benoni"],[/Reti Opening/gi,"Ouverture Réti"],[/Opening/gi,"Ouverture"],[/Defense/gi,"Défense"],[/Gambit/gi,"Gambit"],[/Variation/gi,"Variante"],[/Attack/gi,"Attaque"],[/Accepted/gi,"accepté"],[/Declined/gi,"refusé"],[/Exchange/gi,"d'échange"],[/Classical/gi,"classique"],[/System/gi,"système"]];
 function frenchName(name){let s=name||"Ouverture non classée";for(const [re,to] of FR)s=s.replace(re,to);return s;}
 function familyName(name){return frenchName(String(name||"Ouverture non classée").split(/\s*[:–—]\s*/)[0].trim());}
@@ -34,7 +35,7 @@ function classify(game){
 function buildGroups(){
  const map=new Map(),games=window.CoachApp?.getGames?.()||[];
  for(const game of games){
-  const op=classify(game),key=op.family;
+  const op=classify(game);if(op.family==="Ouverture non identifiée")continue;const key=op.family;
   if(!map.has(key))map.set(key,{key,family:op.family,games:[],variants:new Map(),white:0,black:0,wins:0,draws:0,losses:0});
   const group=map.get(key);group.games.push(game);const side=sideOf(game);group[side]++;
   const result=outcome(game);if(result==="win")group.wins++;if(result==="draw")group.draws++;if(result==="loss")group.losses++;
@@ -64,7 +65,7 @@ function startExercise(group,variant){
  let line=variant.book?.moves?.slice()||gameMoves(game||{});
  if(!line.length){$("opening-practice").innerHTML='<p class="muted">La suite de coups n’est pas disponible pour cette variante.</p>';return;}
  const filter=$("opening-color-filter").value;
- const whiteCount=group.games.filter(g=>sideOf(g)==="white").length,blackCount=group.games.length-whiteCount;
+ const whiteCount=variant.games.filter(g=>sideOf(g)==="white").length,blackCount=variant.games.length-whiteCount;
  const side=filter==="white"?"w":filter==="black"?"b":(whiteCount>=blackCount?"w":"b");
  let board=new Chess(),ply=0,selected=null,feedback="Choisis une pièce puis une case. Je te guide dans la ligne d’ouverture que tu as jouée.";
  const applyOpponentMoves=()=>{while(ply<line.length&&board.turn()!==side){const u=line[ply++];try{board.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]});}catch{break;}}};
@@ -79,7 +80,7 @@ function startExercise(group,variant){
    const sq=file+rank,p=board.get(sq),light=((rank-1+(file.charCodeAt(0)-97))%2)===1,classes=["opening-square",light?"light":"dark"];
    if(selected===sq)classes.push("selected");if(targets.has(sq))classes.push(targets.get(sq)==="capture"?"capture-target":"legal-target");
    const coords=(f===0?'<span class="opening-rank-coordinate">'+rank+'</span>':"")+(r===7?'<span class="opening-file-coordinate">'+file.toUpperCase()+'</span>':"");
-   cells+='<button type="button" class="'+classes.join(" ")+'" data-opening-square="'+sq+'" aria-label="'+sq+'">'+(p?'<img class="chess-piece-image" src="https://lichess1.org/assets/piece/cburnett/'+(p.color==="w"?"w":"b")+p.type.toUpperCase()+'.svg" alt="'+p.type+'">':"")+coords+(targets.has(sq)&&targets.get(sq)==="move"?'<i class="opening-legal-dot"></i>':"")+'</button>';
+   cells+='<button type="button" class="'+classes.join(" ")+'" data-opening-square="'+sq+'" aria-label="'+sq+'">'+(p?'<img class="chess-piece-image" src="https://lichess1.org/assets/piece/cburnett/'+(p.color==="w"?"w":"b")+p.type.toUpperCase()+'.svg" alt="'+glyph[p.color+p.type]+'">':"")+coords+(targets.has(sq)&&targets.get(sq)==="move"?'<i class="opening-legal-dot"></i>':"")+'</button>';
   }));
   const done=ply>=line.length;
   root.innerHTML='<div class="opening-practice-layout"><div class="opening-practice-board">'+cells+'</div><aside class="opening-practice-coach"><div class="coach-avatar">♞</div><p class="eyebrow">TON COACH</p><h4>'+esc(group.family)+'</h4><strong>'+(done?"Exercice terminé !":"À toi de jouer")+'</strong><p>'+esc(done?"Bravo, tu as parcouru toute la ligne d’ouverture. Tu peux recommencer pour la mémoriser.":feedback)+'</p><small>Joue les coups avec les pièces et les points de destination, comme dans l’onglet Entraînement.</small><button type="button" data-opening-reset>Recommencer</button></aside></div>';
