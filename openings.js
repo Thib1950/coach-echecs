@@ -37,11 +37,11 @@ function validEco(value){const m=String(value||"").match(/\b([A-E]\d{2})\b/i);re
 function compatibleEco(name,eco){
  if(!eco)return false;
  const n=String(name||"").toLowerCase();
- if(n.includes("french"))return /^C(0[0-9]|1[0-9])$/.test(eco);
- if(n.includes("sicilian"))return /^B(2[0-9]|3[0-9])$/.test(eco);
+ if(n.includes("french")||n.includes("française"))return /^C(0[0-9]|1[0-9])$/.test(eco);
+ if(n.includes("sicilian")||n.includes("sicilienne"))return /^B(2[0-9]|3[0-9])$/.test(eco);
  if(n.includes("caro-kann"))return /^B1[0-9]$/.test(eco);
- if(n.includes("ruy lopez")||n.includes("spanish"))return /^C[6-9][0-9]$/.test(eco);
- if(n.includes("italian"))return /^C5[0-9]$/.test(eco);
+ if(n.includes("ruy lopez")||n.includes("spanish")||n.includes("espagnole"))return /^C[6-9][0-9]$/.test(eco);
+ if(n.includes("italian")||n.includes("italienne"))return /^C5[0-9]$/.test(eco);
  return true;
 }
 function classify(game){
