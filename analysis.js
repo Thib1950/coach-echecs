@@ -141,16 +141,16 @@ function refreshGamePicker(){
 }
 function renderResults(g, report){
   const counts={good:0,inaccuracy:0,mistake:0,blunder:0};
-  report.moves.forEach(m=>counts[m.kind]++);
-  const issues=report.moves.filter(m=>m.kind!=="good");
+  report.moves.forEach(m=>{if(m.loss!==null&&m.loss!==undefined)counts[m.kind]++;});
+  const issues=report.moves.filter(m=>m.loss!==null&&m.loss!==undefined&&m.kind!=="good");
   $("analysis-results").innerHTML=
-    '<div class="analysis-summary"><div><strong>'+report.moves.length+'</strong><span>coups analysés</span></div><div><strong>'+counts.inaccuracy+'</strong><span>imprécisions</span></div><div><strong>'+counts.mistake+'</strong><span>erreurs</span></div><div><strong>'+counts.blunder+'</strong><span>gaffes</span></div><div><strong>'+(accuracyFromMoves(report.moves)??"—")+' %</strong><span>précision estimée</span></div></div>'+
+    '<div class="analysis-summary"><div><strong>'+report.moves.length+'</strong><span>coups analysés</span></div><div><strong>'+counts.inaccuracy+'</strong><span>imprécisions</span></div><div><strong>'+counts.mistake+'</strong><span>erreurs</span></div><div><strong>'+counts.blunder+'</strong><span>gaffes</span></div><div><strong>'+(accuracyFromMoves(report.moves)??"—")+(accuracyFromMoves(report.moves)===null?"":" %")+'</strong><span>précision estimée</span></div></div>'+
     '<p class="analysis-verdict">'+(issues.length?"Stockfish a trouvé "+issues.length+" coup(s) à revoir. Les symboles sur l’échiquier indiquent la qualité de chaque coup lorsque tu le fais défiler.":"Aucune erreur importante détectée dans les coups examinés.")+'</p>'+
     '<p class="small muted">Stockfish 19 Lite · '+report.positions.length+' positions examinées · '+report.covered+' demi-coups parcourus. Analyse indicative à profondeur limitée.</p>';
   if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,g);
 }
 function accuracyFromMoves(moves){
-  const list=(moves||[]).map(m=>Math.max(0,Number(m.loss)||0));
+  const list=(moves||[]).filter(m=>m.loss!==null&&m.loss!==undefined&&Number.isFinite(Number(m.loss))).map(m=>Math.max(0,Number(m.loss)||0));
   if(!list.length)return null;
   return Math.round(list.reduce((sum,loss)=>sum+100*Math.exp(-0.01*Math.sqrt(loss)),0)/list.length);
 }
