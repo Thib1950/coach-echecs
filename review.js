@@ -24,12 +24,13 @@ function coachMessage(detail){
  const scoreText=Number.isFinite(evalBefore)?"La position était évaluée à "+formatEval(evalBefore)+" avant le coup. ":"";
  if(detail.color!==userSide){
   let reason="L’adversaire a joué "+played+". ";
-  if(detail.playedCheck)reason+="C’est un échec : il faut d’abord répondre à cette menace. ";
-  else if(detail.playedCapture)reason+="Il vient de prendre une pièce : vérifie si cette prise crée une menace supplémentaire ou si elle peut être reprise. ";
-  if(detail.bestCheck)reason+="La meilleure réponse est "+best+", un échec qui force l’adversaire à réagir. ";
-  else if(detail.bestCapture)reason+="La meilleure réponse est "+best+", une prise qui permet de gagner ou récupérer du matériel. ";
-  else reason+="Stockfish recommande "+best+" pour maintenir la position et répondre précisément à son idée. ";
-  return {title:"Répondre au coup adverse",body:scoreText+reason,tip:"Avant de jouer, vérifie les échecs, les prises et les menaces directes laissées par le dernier coup."};
+  if(detail.playedCheck)reason+="Il t’a mis en échec : commence par chercher toutes les réponses légales, puis vérifie s’il menace autre chose. ";
+  else if(detail.playedCapture)reason+="Il a choisi une prise. Vérifie si tu peux reprendre la pièce et si cette prise a laissé une autre pièce sans défense. ";
+  if(detail.loss>=90)reason+="Ce coup est une erreur pour lui : Stockfish préférait "+best+". ";
+  else if(detail.bestCheck)reason+="Il disposait d’un échec plus fort avec "+best+", qu’il n’a pas trouvé. ";
+  else if(detail.bestCapture)reason+="Il a manqué une prise importante avec "+best+". ";
+  else reason+="Le moteur préférait "+best+", mais l’écart reste limité : compare les deux plans pour comprendre la nuance. ";
+  return {title:"Lire le coup adverse",body:scoreText+reason,tip:"Cherche ce que le coup adverse a modifié : pièces attaquées, cases affaiblies, roi exposé ou possibilité de reprendre du matériel."};
  }
  if(loss<35){
   let explanation="Tu as joué "+played+". C’est un coup précis : tu conserves l’essentiel de l’évaluation et Stockfish ne trouve pas d’amélioration significative.";
