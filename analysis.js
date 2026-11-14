@@ -114,12 +114,13 @@ function renderResults(g, report){
     (issues.length ? '<div class="analysis-moves">'+issues.slice(0,15).map(m=>'<div class="analysis-move"><div><strong>'+esc(m.color==="w"?"Blancs":"Noirs")+' · '+esc(m.moveNo)+'. '+esc(m.played)+'</strong><small>Meilleur coup : '+esc(m.best)+' · perte estimée '+Math.round(m.loss)+' centipions</small></div><span class="move-tag '+m.kind+'">'+m.label+'</span></div>').join("")+'</div>' : '<div class="empty-state compact">Pas d'erreur importante détectée à cette profondeur de calcul.</div>')+
     '<p class="small muted">Analyse Stockfish 19 Lite · '+report.depth+' recherche(s) courte(s) · '+report.covered+' demi-coups examinés. Les résultats sont une première estimation : approfondir une position peut modifier l'évaluation.</p>';
 }
-async function analyseSelectedGame(){
+async function analyseSelectedGame(gameIdOverride){
   if (busy) return;
   const games = window.CoachApp?.getGames?.() || [];
-  const id = $("analysis-game-select").value;
+  const id = gameIdOverride === undefined ? $("analysis-game-select").value : String(gameIdOverride);
   const game = games.find(g=>String(g.id)===id);
   if (!game) { $("analysis-results").innerHTML='<div class="empty-state">Aucune partie sélectionnée.</div>'; return; }
+  $("analysis-game-select").value=String(game.id);
   if (!game.pgn) { $("analysis-results").innerHTML='<div class="empty-state">Le PGN de cette partie n'est pas disponible. Réimporte la partie depuis Chess.com pour l'analyser.</div>'; return; }
   busy = true; $("analyse-game-button").disabled = true; $("analyse-game-button").textContent = "Analyse en cours…";
   $("analysis-progress").hidden = false; $("analysis-results").innerHTML = ""; $("game-replay-area").innerHTML = "";
@@ -171,18 +172,24 @@ async function analyseSelectedGame(){
   }
 }
 
-window.addEventListener("coach:analyze-game",event=>{
-  const id=event.detail?.gameId,select=$("analysis-game-select");
+function openGameInCoach(gameId){
+  const id=String(gameId??"");
   document.querySelector('[data-tab="training"]')?.click();
   refreshGamePicker();
-  if(select&&id!==undefined)select.value=String(id);
-  const chosen=(window.CoachApp?.getGames?.()||[]).find(g=>String(g.id)===String(select?.value));
-  if(!chosen){$("analysis-results").innerHTML='<div class="empty-state">Cette partie est introuvable dans les données de cet appareil.</div>';return;}
-  analyseSelectedGame();
-});
+  const select=$("analysis-game-select");
+  const game=(window.CoachApp?.getGames?.()||[]).find(g=>String(g.id)===id);
+  if(!game){
+    $("analysis-results").innerHTML='<div class="empty-state">Cette partie est introuvable dans les données de cet appareil.</div>';
+    return false;
+  }
+  if(select)select.value=id;
+  analyseSelectedGame(id);
+  return true;
+}
+window.addEventListener("coach:analyze-game",event=>openGameInCoach(event.detail?.gameId));
 $("analyse-game-button").addEventListener("click",analyseSelectedGame);
 window.addEventListener("coach:games-updated",refreshGamePicker);
-window.CoachAnalysis={analyze:gameId=>window.dispatchEvent(new CustomEvent("coach:analyze-game",{detail:{gameId}}))};
+window.CoachAnalysis={openGame:openGameInCoach,analyze:gameId=>openGameInCoach(gameId)};
 $("game-replay-area").addEventListener("click",event=>{
  const step=event.target.closest("[data-replay-step]");
  if(step){replayIndex=Math.max(0,Math.min(replayHistory.length,replayIndex+Number(step.dataset.replayStep)));drawReplay();return;}
