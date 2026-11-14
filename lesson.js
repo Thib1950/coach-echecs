@@ -59,9 +59,6 @@ window.CoachLessons={openForGameMove(gameId,moveIndex){
  if(!move){$("lesson-area").innerHTML='<div class="empty-state">Analyse d’abord cette partie pour créer les exercices.</div>';return;}
  openLesson(move);
 }};
-document.addEventListener("DOMContentLoaded",()=>{
- const target=$("analysis-results");
- if(!target)return;
- new MutationObserver(attachLessonButtons).observe(target,{childList:true,subtree:true});
- attachLessonButtons();
-});
+const target=$("analysis-results");
+if(target)new MutationObserver(attachLessonButtons).observe(target,{childList:true,subtree:true});
+attachLessonButtons();
