@@ -186,8 +186,8 @@ function renderResults(g, report){
   const kinds=["brilliant","great","best","excellent","good","book","inaccuracy","mistake","miss","blunder"];
   const counts=Object.fromEntries(kinds.map(k=>[k,0]));
   report.moves.forEach(m=>{if(counts[m.kind]!==undefined)counts[m.kind]++;});
-  const meta={brilliant:["!!","Brillants"],great:["!","Grands coups"],best:["★","Meilleurs"],excellent:["👍","Excellents"],good:["✓","Bons coups"],book:["▤","Théorie"],inaccuracy:["?!","Imprécisions"],mistake:["?","Erreurs"],miss:["×","Occasions manquées"],blunder:["??","Gaffes"]};
-  const tiles=kinds.map(k=>'<div class="summary-metric '+k+'"><span class="metric-icon">'+meta[k][0]+'</span><strong>'+counts[k]+'</strong><span class="metric-label">'+meta[k][1]+'</span></div>').join("");
+  const meta={brilliant:["✦","Brillants"],great:["!","Grands coups"],best:["★","Meilleurs"],excellent:["◆","Excellents"],good:["✓","Bons coups"],book:["▤","Théorie"],inaccuracy:["?!","Imprécisions"],mistake:["?","Erreurs"],miss:["×","Occasions manquées"],blunder:["‼","Gaffes"]};
+  const tiles=kinds.filter(k=>counts[k]>0).map(k=>'<div class="summary-metric '+k+'"><span class="metric-icon">'+meta[k][0]+'</span><strong>'+counts[k]+'</strong><span class="metric-label">'+meta[k][1]+'</span></div>').join("");
   $("analysis-results").innerHTML='<div class="analysis-summary">'+tiles+'</div>';
   if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,g);
 }
@@ -254,7 +254,7 @@ async function analyseSelectedGame(gameIdOverride,options={}){
       const winPercentBefore=winPercent(beforeEval.scoreWhite*moverSign);
       const winLossPercent=Math.max(0,winPercentBefore-winPercent(afterEval.scoreWhite*moverSign));
       const afterWinPercent=winPercent(afterEval.scoreWhite*moverSign);
-      const quality=classify(winLossPercent,playedUci===beforeEval.bestmove);
+      const quality=(i<10&&(game.eco||game.opening))?{label:"Théorie",kind:"book"}:classify(winLossPercent,playedUci===beforeEval.bestmove);
       if(playedUci===beforeEval.bestmove&&((winPercentBefore<35&&afterWinPercent>=45)||(winPercentBefore>=45&&winPercentBefore<65&&afterWinPercent>=75))){quality.label="Grand coup";quality.kind="great";}
       const previousOpponentMove=report.positionDetails[report.positionDetails.length-1];
       if(move.color===userSide&&previousOpponentMove&&previousOpponentMove.color!==userSide&&previousOpponentMove.winLossPercent>=10&&winLossPercent>=2){quality.label="Occasion manquée";quality.kind="miss";}
