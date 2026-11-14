@@ -174,3 +174,10 @@ html,body,button,a,input,select{touch-action:manipulation}
 .board-arrows.rotated{transform:rotate(180deg);transform-origin:50% 50%}
 .free-navigation .icon-nav{background:linear-gradient(180deg,#304a37,#1b3228);border-color:#63875b}
 #analysis-results .analysis-moves{display:none!important}
+
+/* Statistiques de précision et résultats */
+.game-analysis-meta{margin-top:5px;font-size:10px;color:var(--muted)}
+.game-analysis-meta b{color:#c9ed85;font-weight:800}
+.game-result.win{color:#b8f18a;background:#263b27;border-color:#476443}
+.game-result.loss{color:#ff9da6;background:#482b32;border-color:#71414a}
+.game-result.draw{color:#d5deea}
