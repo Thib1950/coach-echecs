@@ -174,7 +174,7 @@ async function analyseSelectedGame(gameIdOverride){
     const engine = await getEngine();
     const replay=new Chess(),report={moves:[],depth:0,covered:0,positions:[]};
     const userSide=(game.white||"").toLowerCase()===user?"w":"b";
-    const maxPlies=Math.min(history.length,80);
+    const maxPlies=history.length;
     const evaluations=[];
     // Une évaluation par position donne une courbe complète, comme sur les analyseurs
     // de référence. Le score est normalisé du point de vue des Blancs.
