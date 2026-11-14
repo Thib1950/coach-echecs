@@ -282,7 +282,7 @@ async function analyseSelectedGame(gameIdOverride,options={}){
       renderResults(game,report);
       if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,game);
       $("analysis-progress-fill").style.width="100%";
-      $("analysis-progress-label").textContent="Analyse complète · "+elapsedText(startedAt)+" · Précision estimée : "+game.analysis.accuracy+" %.";
+      $("analysis-progress-label").textContent="Analyse terminée · "+elapsedText(startedAt)+" · Précision : "+game.analysis.accuracy+" %.";
     }else{
       window.CoachApp.refresh?.();
       updateAccuracyQueueStatus();
