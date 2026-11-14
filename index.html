@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101a2a">
+  <meta name="description" content="Coach d'échecs personnel : parties Chess.com, progression et entraînement.">
+  <title>Mon Coach d'échecs</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Accueil">
+        <span class="brand-mark">♞</span><span>MON COACH<span class="brand-sub">D'ÉCHECS</span></span>
+      </a>
+      <div class="profile-chip"><span class="online-dot"></span><span id="account-name">gone_1950</span><span class="chip-label">CHESS.COM</span></div>
+    </header>
+    <main>
+      <section class="welcome">
+        <div>
+          <p class="eyebrow">TON ESPACE D'ENTRAÎNEMENT</p>
+          <h1>On progresse <em>un coup à la fois.</em></h1>
+          <p class="welcome-copy">Tes parties, tes habitudes et tes prochains objectifs réunis au même endroit.</p>
+        </div>
+        <div class="welcome-piece" aria-hidden="true">♞</div>
+      </section>
+      <nav class="tabs" aria-label="Navigation principale">
+        <button class="tab active" data-tab="dashboard">Vue d'ensemble</button>
+        <button class="tab" data-tab="games">Mes parties</button>
+        <button class="tab" data-tab="training">Entraînement</button>
+        <button class="tab" data-tab="openings">Ouvertures</button>
+        <button class="tab" data-tab="progress">Progression</button>
+      </nav>
+
+      <section class="panel active" id="panel-dashboard">
+        <div class="section-heading"><div><p class="eyebrow">TABLEAU DE BORD</p><h2>Salut, joueur 👋</h2></div><span class="sync-state" id="sync-state">Données non synchronisées</span></div>
+        <div class="stats-grid">
+          <article class="stat-card"><span class="stat-label">PARTIES IMPORTÉES</span><strong id="stat-games">0</strong><span class="stat-note">Dans ton espace personnel</span></article>
+          <article class="stat-card"><span class="stat-label">VICTOIRES</span><strong id="stat-wins">0</strong><span class="stat-note" id="stat-winrate">En attente de tes parties</span></article>
+          <article class="stat-card"><span class="stat-label">NULLES</span><strong id="stat-draws">0</strong><span class="stat-note">Résultats nuls</span></article>
+          <article class="stat-card"><span class="stat-label">DÉFAITES</span><strong id="stat-losses">0</strong><span class="stat-note">Des occasions d'apprendre</span></article>
+        </div>
+        <div class="content-grid">
+          <article class="surface">
+            <div class="surface-heading"><div><p class="eyebrow">PREMIÈRE ÉTAPE</p><h3>Importer tes parties</h3></div><span class="icon-bubble">↗</span></div>
+            <p>Je récupère les parties publiques de ton compte Chess.com. Tu peux aussi importer un fichier PGN exporté depuis Chess.com.</p>
+            <div class="button-row"><button class="primary-button" id="sync-button">Récupérer mes parties</button><label class="secondary-button file-button">Importer un PGN<input type="file" id="pgn-file" accept=".pgn,text/plain" hidden></label></div>
+            <p class="small muted" id="sync-message">Compte configuré : gone_1950. Aucune connexion par mot de passe n'est nécessaire.</p>
+          </article>
+          <article class="surface focus-card">
+            <p class="eyebrow">NOTRE MÉTHODE</p><h3>Comprendre avant de mémoriser.</h3>
+            <p>Le but n'est pas de te donner une liste de coups à apprendre. On va identifier les erreurs qui reviennent dans tes propres parties, puis travailler dessus.</p>
+            <div class="focus-line"><span>01</span> Observer tes parties</div><div class="focus-line"><span>02</span> Repérer les habitudes</div><div class="focus-line"><span>03</span> Créer un entraînement ciblé</div>
+          </article>
+        </div>
+        <article class="surface recent-surface"><div class="surface-heading"><div><p class="eyebrow">ACTIVITÉ RÉCENTE</p><h3>Dernières parties</h3></div><button class="text-button" data-goto="games">Tout voir →</button></div><div id="recent-games" class="empty-state">Tes parties apparaîtront ici après l'import.</div></article>
+      </section>
+
+      <section class="panel" id="panel-games">
+        <div class="section-heading"><div><p class="eyebrow">HISTORIQUE CHESS.COM</p><h2>Mes parties</h2><p class="muted">Retrouve tes parties importées et leurs informations.</p></div><button class="primary-button" id="sync-button-games">Synchroniser</button></div>
+        <div class="filter-row"><input id="game-search" type="search" placeholder="Rechercher un adversaire…" aria-label="Rechercher un adversaire"><select id="result-filter" aria-label="Filtrer par résultat"><option value="all">Tous les résultats</option><option value="win">Victoires</option><option value="draw">Nulles</option><option value="loss">Défaites</option></select></div>
+        <div id="games-list" class="games-list"><div class="empty-state">Aucune partie pour le moment. Lance une synchronisation ou importe un PGN.</div></div>
+      </section>
+
+      <section class="panel" id="panel-training">
+        <div class="section-heading"><div><p class="eyebrow">TRAVAIL PERSONNALISÉ</p><h2>Entraînement</h2><p class="muted">Des exercices construits à partir de tes propres parties.</p></div></div>
+        <div class="training-intro"><div class="big-knight">♘</div><div><h3>On va travailler sur tes vraies positions.</h3><p>Après l'import de tes parties, cette section accueillera des exercices tactiques et des situations où tu as manqué une occasion. L'analyse moteur Stockfish sera ajoutée dans la prochaine étape.</p></div></div>
+        <div class="stats-grid three"><article class="stat-card"><span class="stat-label">TACTIQUE</span><strong>À venir</strong><span class="stat-note">Fourchettes, clouages, mats</span></article><article class="stat-card"><span class="stat-label">CALCUL</span><strong>À venir</strong><span class="stat-note">Chercher les coups candidats</span></article><article class="stat-card"><span class="stat-label">FINALES</span><strong>À venir</strong><span class="stat-note">Convertir les avantages</span></article></div>
+      </section>
+
+      <section class="panel" id="panel-openings">
+        <div class="section-heading"><div><p class="eyebrow">RÉPERTOIRE PERSONNEL</p><h2>Ouvertures</h2><p class="muted">Identifier les ouvertures que tu joues avec les Blancs et les Noirs.</p></div></div>
+        <article class="surface"><h3>Ton répertoire sera construit à partir de tes parties.</h3><p>On regardera les premiers coups, les positions obtenues et les résultats. Ensuite, je pourrai te proposer un répertoire cohérent avec ton style et ton niveau, sans te faire apprendre des dizaines de variantes inutiles.</p><div class="empty-state compact" id="opening-state">Importe tes parties pour commencer.</div></article>
+      </section>
+
+      <section class="panel" id="panel-progress">
+        <div class="section-heading"><div><p class="eyebrow">BILAN ET OBJECTIFS</p><h2>Ta progression</h2><p class="muted">Un suivi basé sur tes résultats réels, pas sur des impressions.</p></div></div>
+        <div class="content-grid"><article class="surface"><h3>Résultats des parties importées</h3><div id="result-bars" class="bar-list"><p class="muted">Les statistiques apparaîtront après l'import.</p></div></article><article class="surface"><h3>Prochaine étape</h3><p>Analyser chaque partie avec un moteur d'échecs, mesurer les pertes d'évaluation et classer les erreurs par thème.</p><span class="status-pill">Analyse Stockfish : prochaine étape</span></article></div>
+      </section>
+    </main>
+    <footer><span>MON COACH D'ÉCHECS</span><span>Version initiale · Tes données restent dans ce navigateur</span></footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
