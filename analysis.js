@@ -16,7 +16,7 @@ function getEngine(){
         const line = String(event.data || "");
         if (line.indexOf("ENGINE_FATAL") === 0) {
           clearTimeout(timer);
-          reject(new Error("Stockfish : " + line.replace(/^ENGINE_FATAL\\s*/, "")));
+          reject(new Error("Stockfish : " + line.slice("ENGINE_FATAL".length).trim()));
           return;
         }
         if (line === "uciok") worker.postMessage("isready");
