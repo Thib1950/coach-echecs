@@ -45,14 +45,14 @@ function render(){
 }
 function gameHtml(g){
  const o=outcome(g),accuracy=g.analysis?.accuracy;
- const accuracyText=accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
+ const accuracyText=!g.analysis?.partial&&accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
  const side=userColor(g),opponentElo=side==="white"?g.blackElo:side==="black"?g.whiteElo:"";
  return '<div class="game-row game-row-expanded"><div class="game-row-info"><div class="game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+' <span class="opponent-elo">'+(opponentElo?escapeHtml(opponentElo)+" Elo":"Elo —")+'</span></div><div class="game-meta">'+formatDate(g.date)+'</div><div class="game-elo"><span>Ma précision <b>'+accuracyText+'</b></span></div></div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="lesson-launch" data-open-game="'+escapeHtml(g.id)+'">Revoir / analyser →</button></div>';
 }
 function recentGameHtml(g){
  const side=userColor(g),opponentElo=side==="white"?g.blackElo:side==="black"?g.whiteElo:"";
  const accuracy=g.analysis?.accuracy;
- const accuracyText=accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
+ const accuracyText=!g.analysis?.partial&&accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
  return '<div class="recent-game-row"><div class="recent-game-main"><div class="recent-game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+' <span class="opponent-elo">'+(opponentElo?escapeHtml(opponentElo)+" Elo":"Elo —")+'</span></div><div class="recent-game-meta">'+formatDate(g.date)+'</div></div><div class="recent-game-precision"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><button type="button" class="recent-review-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir cette partie">↗</button></div>';
 }
 function renderGames(sorted){const q=($("game-search").value||"").toLowerCase(),f=$("result-filter").value;const filtered=sorted.filter(g=>(opponent(g)||"").toLowerCase().includes(q)&&(f==="all"||outcome(g)===f));$("games-list").innerHTML=filtered.length?filtered.map(gameHtml).join(""):'<div class="empty-state">Aucune partie ne correspond à ce filtre.</div>'}
