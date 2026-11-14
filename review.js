@@ -126,7 +126,8 @@ function render(){
   arrows='<svg class="board-arrows '+(orientation==="black"?"rotated":"")+'" viewBox="0 0 100 100" aria-hidden="true"><defs><marker id="bestArrow" markerWidth="3.6" markerHeight="3.6" refX="2.8" refY="1.8" orient="auto"><path d="M0,0 L3.6,1.8 L0,3.6 z" fill="'+bestColor+'"/></marker><marker id="playedArrow" markerWidth="3.6" markerHeight="3.6" refX="2.8" refY="1.8" orient="auto"><path d="M0,0 L3.6,1.8 L0,3.6 z" fill="'+playedColor+'"/></marker></defs>'+arrow(best?.slice(0,2),best?.slice(2,4),bestColor)+(played&&played!==best?arrow(played.slice(0,2),played.slice(2,4),playedColor,true):"")+'</svg>';
  }
  const last=index?moves[index-1]:null;
- const label=freeBoard?"Mode libre · "+freeBoard.turn().toUpperCase()+" joue":(variationIndex?"Variante · "+variationIndex+" coup(s) joué(s)":(detail&&detail.played?"Coup "+(Math.floor(detail.ply/2)+1)+" · "+detail.played:(last?("Après le coup "+Math.ceil(index/2)+" · "+last.san):"Position initiale")));
+ const openingLabel=(active?.opening||"").trim()||(active?.eco?"Ouverture · ECO "+active.eco:"Ouverture non identifiée");
+ const label=freeBoard?"Mode libre · "+freeBoard.turn().toUpperCase()+" joue":openingLabel;
  const cp=freeBoard?null:(variationIndex?null:(detail?.evalWhite??active?.analysis?.positions?.[Math.min(index,(active?.analysis?.positions?.length||1)-1)]??null));
  const clamped=Math.max(-1000,Math.min(1000,Number(cp)||0));
  const whitePct=100/(1+Math.exp(-0.00368208*clamped));
