@@ -1,7 +1,7 @@
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
 
 const $ = id => document.getElementById(id);
-let worker = null, engineReady = null, busy = false;
+let worker = null, engineReady = null, busy = false, positionRequestId = 0;
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const user = "gone_1950";
 
@@ -332,10 +332,16 @@ window.CoachAnalysis={
  openGame:openGameInCoach,
  analyze:gameId=>openGameInCoach(gameId),
  async analyzePosition(fen){
-  if(busy)throw new Error("Stockfish analyse déjà une partie. Attends la fin de cette analyse.");
+  const request=++positionRequestId;
+  while(busy){
+   await new Promise(resolve=>setTimeout(resolve,150));
+   if(request!==positionRequestId)throw new Error("Cette analyse a été remplacée par une position plus récente.");
+  }
+  if(request!==positionRequestId)throw new Error("Cette analyse a été remplacée par une position plus récente.");
   busy=true;
   try{
    const engine=await getEngine(),result=await evalPosition(engine,fen,650);
+   if(request!==positionRequestId)throw new Error("Cette analyse a été remplacée par une position plus récente.");
    return {...result,bestSan:sanForUci(fen,result.bestmove),pvSan:pvToSan(fen,result.pv,6)};
   }finally{busy=false;refreshGamePicker();}
  }
