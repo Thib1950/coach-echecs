@@ -10,8 +10,9 @@ function getEngine(){
   if (engineReady) return engineReady;
   engineReady = new Promise((resolve,reject) => {
     try {
-      worker = new Worker("./engine-worker.js");
-      const timer = setTimeout(() => reject(new Error("Stockfish n’a pas répondu après 60 secondes. Vérifie la connexion puis réessaie.")), 60000);
+      worker = new Worker("./engine-worker.js?build=22");
+      let stage = "chargement du fichier moteur";
+      const timer = setTimeout(() => reject(new Error("Stockfish ne répond pas à l’étape : " + stage + ". Le moteur n’a pas pu terminer son initialisation.")), 60000);
       worker.onmessage = event => {
         const line = String(event.data || "");
         if (line.indexOf("ENGINE_FATAL") === 0) {
@@ -19,17 +20,33 @@ function getEngine(){
           reject(new Error("Stockfish : " + line.slice("ENGINE_FATAL".length).trim()));
           return;
         }
-        if (line === "uciok") worker.postMessage("isready");
-        if (line.indexOf("ENGINE_LOG") === 0) console.warn(line.slice(11));
-        if (line === "readyok") { clearTimeout(timer); $("engine-status").textContent = "Stockfish prêt"; $("engine-status").classList.add("ready"); resolve(worker); }
+        if (line.indexOf("ENGINE_LOG") === 0) {
+          const detail = line.slice(11).trim();
+          console.info("[Coach Échecs] " + detail);
+          $("engine-status").textContent = detail;
+          if ($("analysis-progress-label")) $("analysis-progress-label").textContent = detail;
+          return;
+        }
+        if (line === "uciok") {
+          stage = "initialisation UCI (isready)";
+          $("engine-status").textContent = "Script chargé · initialisation UCI…";
+          worker.postMessage("isready");
+        }
+        if (line === "readyok") {
+          clearTimeout(timer);
+          $("engine-status").textContent = "Stockfish prêt";
+          $("engine-status").classList.add("ready");
+          resolve(worker);
+        }
       };
       worker.onerror = event => {
         clearTimeout(timer);
         const detail = [event.message, event.filename, event.lineno ? "ligne " + event.lineno : ""].filter(Boolean).join(" · ");
         reject(new Error("Safari bloque le chargement du moteur" + (detail ? " : " + detail : ".")));
       };
+      stage = "attente de la réponse UCI (uciok)";
       worker.postMessage("uci");
-      $("engine-status").textContent = "Chargement de Stockfish…";
+      $("engine-status").textContent = "Worker démarré · attente de Stockfish…";
     } catch (error) { reject(error); }
   });
   return engineReady;
