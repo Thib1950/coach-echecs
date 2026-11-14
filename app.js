@@ -34,10 +34,14 @@ function opponent(g){return (g.white||"").toLowerCase()===USERNAME.toLowerCase()
 function openingName(g){const name=(g.opening||"").trim();if(name)return name;const eco=(g.eco||"").trim();return eco?"Code ECO "+eco:""}
 function positionWinPercent(cp){const x=Math.max(-1000,Math.min(1000,Number(cp)||0));return 50+50*(2/(1+Math.exp(-0.00368208*x))-1)}
 function gameAccuracy(g){
- const moves=(g.analysis?.moves||[]).filter(m=>Number.isFinite(Number(m.evalWhite))&&Number.isFinite(Number(m.afterEvalWhite))&&m.color);
+ const moves=(g.analysis?.moves||[]).filter(m=>m.evalWhite!==null&&m.evalWhite!==undefined&&m.afterEvalWhite!==null&&m.afterEvalWhite!==undefined&&Number.isFinite(Number(m.evalWhite))&&Number.isFinite(Number(m.afterEvalWhite))&&m.color);
  if(!moves.length)return typeof g.analysis?.accuracy==="number"?g.analysis.accuracy:null;
- const values=moves.map(m=>{const sign=m.color==="w"?1:-1;const loss=Math.max(0,positionWinPercent(Number(m.evalWhite)*sign)-positionWinPercent(Number(m.afterEvalWhite)*sign));return loss<=0?100:Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*loss)-3.1669));});
- const safe=values.map(v=>Math.max(.1,v));return Math.round(safe.length/safe.reduce((sum,v)=>sum+1/v,0));
+ const rows=moves.map(m=>{const sign=m.color==="w"?1:-1,before=positionWinPercent(Number(m.evalWhite)*sign),after=positionWinPercent(Number(m.afterEvalWhite)*sign),loss=Math.max(0,before-after),accuracy=loss<=0?100:Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*loss)-3.1669));return {accuracy,winBefore:before};});
+ const size=Math.max(2,Math.min(8,Math.round(rows.length/10)));
+ const weights=rows.map((row,i)=>{const from=Math.max(0,Math.min(i-size+1,rows.length-size)),window=rows.slice(from,from+Math.min(size,rows.length)),mean=window.reduce((sum,x)=>sum+x.winBefore,0)/window.length,deviation=Math.sqrt(window.reduce((sum,x)=>sum+(x.winBefore-mean)**2,0)/window.length);return Math.max(.5,Math.min(12,deviation));});
+ const weighted=rows.reduce((sum,row,i)=>sum+row.accuracy*weights[i],0)/weights.reduce((sum,w)=>sum+w,0);
+ const harmonic=rows.length/rows.reduce((sum,row)=>sum+1/Math.max(.1,row.accuracy),0);
+ return Math.round((weighted+harmonic)/2);
 }
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function groupOpenings(source){const groups=new Map();source.forEach(g=>{const name=openingName(g);if(!name)return;const key=name; if(!groups.has(key))groups.set(key,{name,games:[],wins:0,draws:0,losses:0,white:0,black:0});const x=groups.get(key);x.games.push(g);const o=outcome(g);if(o==="win")x.wins++;if(o==="draw")x.draws++;if(o==="loss")x.losses++;if(userColor(g)==="white")x.white++;if(userColor(g)==="black")x.black++});return [...groups.values()].map(x=>({...x,count:x.games.length,score:(x.wins+x.draws/2)/(x.wins+x.draws+x.losses||1)*100})).sort((a,b)=>b.count-a.count)}
