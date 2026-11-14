@@ -121,6 +121,17 @@ function classify(loss){
   if(loss<180)return {label:"Erreur",kind:"mistake"};
   return {label:"Gaffe",kind:"blunder"};
 }
+function isBrilliantSacrifice(fen,uci,loss){
+  if(!uci||loss>=15)return false;
+  try{
+    const before=new Chess(fen),piece=before.get(uci.slice(0,2));
+    const value={p:1,n:3,b:3,r:5,q:9,k:100}[piece?.type]||0;
+    if(value<3)return false;
+    const after=new Chess(fen);
+    after.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]});
+    return after.moves({verbose:true}).some(move=>move.to===uci.slice(2,4)&&!!move.captured);
+  }catch{return false;}
+}
 function resultName(g){
   const white = (g.white || "").toLowerCase() === user;
   const black = (g.black || "").toLowerCase() === user;
@@ -149,7 +160,7 @@ function renderResults(g, report){
   const tiles=kinds.map(k=>'<div class="summary-metric '+k+'"><span class="metric-icon">'+meta[k][0]+'</span><strong>'+counts[k]+'</strong><span class="metric-label">'+meta[k][1]+'</span></div>').join("");
   const moveList=report.moves.filter(m=>m.loss!==null&&m.loss!==undefined).map(m=>{
     const symbol=meta[m.kind]?.[0]||"✓",label=m.label||"Bon coup";
-    return '<button type="button" class="analysis-move analysis-move-button" data-analysis-ply="'+m.ply+'"><span class="analysis-move-main"><strong>'+Math.floor(m.ply/2+1)+'. '+esc(m.played||"—")+'</strong><small>Meilleur coup : <b>'+esc(m.best||"—")+'</b> · perte estimée '+Math.round(m.loss)+' cp</small></span><span class="move-tag '+m.kind+'">'+symbol+' '+esc(label)+'</span></button>';
+    return '<button type="button" class="analysis-move analysis-move-button" data-analysis-game="'+esc(g.id)+'" data-analysis-ply="'+m.ply+'"><span class="analysis-move-main"><strong>'+Math.floor(m.ply/2+1)+'. '+esc(m.played||"—")+'</strong><small>Meilleur coup : <b>'+esc(m.best||"—")+'</b> · perte estimée '+Math.round(m.loss)+' cp</small></span><span class="move-tag '+m.kind+'">'+symbol+' '+esc(label)+'</span></button>';
   }).join("");
   $("analysis-results").innerHTML='<div class="analysis-summary">'+tiles+'</div><p class="analysis-verdict">'+(report.moves.length?"Voici le détail de tes décisions, coup par coup. Sélectionne une ligne pour afficher la position et comprendre l’idée.":"Aucun coup personnel n’a encore été évalué.")+'</p><div class="analysis-moves">'+moveList+'</div><p class="small muted">Précision estimée sur tes coups uniquement · analyse moteur indicative à profondeur limitée. Les coups brillants sont comptés uniquement lorsqu’un sacrifice décisif est reconnu.</p>';
   if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,g);
@@ -225,7 +236,9 @@ async function analyseSelectedGame(gameIdOverride,options={}){
       const afterEval=await evalPosition(engine,replay.fen(),movetime);
       const moverSign=move.color==="w"?1:-1;
       const loss=beforeEval.bestmove===playedUci?0:Math.max(0,moverSign*(beforeEval.scoreWhite-afterEval.scoreWhite));
-      Object.assign(detail,{afterEvalWhite:afterEval.scoreWhite,loss,...classify(loss)});
+      const quality=classify(loss);
+      if(playedUci===beforeEval.bestmove&&isBrilliantSacrifice(beforeFen,playedUci,loss)){quality.label="Coup brillant";quality.kind="brilliant";}
+      Object.assign(detail,{afterEvalWhite:afterEval.scoreWhite,loss,...quality});
       report.covered=i+1;
       report.depth=Math.max(report.depth,beforeEval.depth||0);
       report.positions.push(afterEval.scoreWhite);
@@ -332,7 +345,7 @@ document.addEventListener("click",event=>{
   const button=event.target.closest("[data-analysis-ply]");
   if(!button)return;
   const all=window.CoachApp?.getGames?.()||[];
-  const game=all.find(g=>g.analysis?.moves?.some(m=>String(m.ply)===button.dataset.analysisPly));
+  const game=all.find(g=>String(g.id)===button.dataset.analysisGame);
   const move=game?.analysis?.moves?.find(m=>String(m.ply)===button.dataset.analysisPly);
   if(move)window.CoachReview?.showAnalysisMove(move);
 });
