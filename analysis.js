@@ -183,6 +183,7 @@ function openGameInCoach(gameId){
     return false;
   }
   if(select)select.value=id;
+  $("analyse-game-button")?.scrollIntoView({behavior:"smooth",block:"center"});
   analyseSelectedGame(id);
   return true;
 }
