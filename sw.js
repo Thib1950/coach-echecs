@@ -1,4 +1,4 @@
-const CACHE="coach-echecs-shell-v24";
+const CACHE="coach-echecs-shell-v25";
 const FILES=["./","./index.html","./styles.css","./app.js","./analysis.js","./review.js","./lesson.js","./openings.js","./engine-worker.js","./manifest.webmanifest","./favicon.svg"];
 
 // Le moteur est servi sous une URL de même origine. Le service worker récupère
@@ -42,8 +42,12 @@ async function loadEngineAsset(request,name){
       const response=await fetch(url,{mode:"cors",credentials:"omit",cache:"force-cache"});
       if(!response.ok)throw new Error("HTTP "+response.status+" depuis "+url);
       if(response.type==="opaque")throw new Error("Réponse opaque : le navigateur ne peut pas lire le moteur.");
-      await cache.put(localUrl.href,response.clone());
-      return response;
+      const localResponse=new Response(await response.arrayBuffer(),{status:200,headers:{
+        "Content-Type":name.endsWith(".wasm")?"application/wasm":"text/javascript; charset=utf-8",
+        "Cache-Control":"public, max-age=31536000"
+      }});
+      await cache.put(localUrl.href,localResponse.clone());
+      return localResponse;
     }catch(error){lastError=error;}
   }
   return new Response("Impossible de télécharger Stockfish 19 Lite : "+(lastError?.message||"réseau indisponible"),{
