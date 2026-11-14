@@ -107,7 +107,7 @@ async function analyseSelectedGame(gameIdOverride){
   const game = games.find(g=>String(g.id)===id);
   if (!game) { $("analysis-results").innerHTML='<div class="empty-state">Aucune partie sélectionnée.</div>'; return; }
   $("analysis-game-select").value=String(game.id);
-  if (!game.pgn) { $("analysis-results").innerHTML='<div class="empty-state">Le PGN de cette partie n'est pas disponible. Réimporte la partie depuis Chess.com pour l’analyser.</div>'; return; }
+  if (!game.pgn) { $("analysis-results").innerHTML='<div class="empty-state">Le PGN de cette partie n’est pas disponible. Réimporte la partie depuis Chess.com pour l’analyser.</div>'; return; }
   busy = true; const startedAt=Date.now(); $("analyse-game-button").disabled = true; $("analyse-game-button").textContent = "Analyse en cours…";
   $("analysis-progress").hidden = false; $("analysis-progress-fill").style.width = "0%"; $("analysis-progress-label").textContent = "Chargement du moteur Stockfish…"; $("analysis-results").innerHTML = ""; if(window.CoachReview?.open) window.CoachReview.open(game.id);
   try {
