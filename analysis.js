@@ -53,20 +53,20 @@ function evalPosition(engine,fen){
     let score=0,bestmove="",pv=[],depth=0,timer=null;
     const handler=event=>{
       const line=String(event.data||"");
-      const cp=line.match(/\\bscore cp (-?\\d+)/);
-      const mate=line.match(/\\bscore mate (-?\\d+)/);
+      const cp=line.match(/\bscore cp (-?\d+)/);
+      const mate=line.match(/\bscore mate (-?\d+)/);
       if(cp)score=Number(cp[1]);
       if(mate)score=Number(mate[1])>0?10000:-10000;
       if(line.startsWith("info ")){
-        const d=line.match(/\\bdepth (\\d+)/);
+        const d=line.match(/\bdepth (\d+)/);
         if(d)depth=Number(d[1]);
         const pvIndex=line.indexOf(" pv ");
-        if(pvIndex>=0)pv=line.slice(pvIndex+4).trim().split(/\\s+/).filter(Boolean);
+        if(pvIndex>=0)pv=line.slice(pvIndex+4).trim().split(/\s+/).filter(Boolean);
       }
       if(line.startsWith("bestmove")){
         engine.removeEventListener("message",handler);
         clearTimeout(timer);
-        bestmove=line.split(/\\s+/)[1]||"";
+        bestmove=line.split(/\s+/)[1]||"";
         const whiteToMove=fen.split(" ")[1]!=="b";
         resolve({score,bestmove,pv,depth,scoreWhite:score*(whiteToMove?1:-1)});
       }
