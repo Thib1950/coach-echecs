@@ -91,7 +91,7 @@ function render(){
  ranks.forEach((rank,r)=>files.forEach((file,f)=>{
   const square=file+rank,p=board.get(square),light=((rank-1+(file.charCodeAt(0)-97))%2)===1;
   const classes=["replay-square",light?"light":"dark"];
-  const tacticalHighlight=!freeBoard&&detail&&variationIndex===0&&(detail.bestCheck||detail.bestCapture||detail.playedCheck||detail.playedCapture);
+  const tacticalHighlight=!freeBoard&&detail&&variationIndex===0&&(detail.bestCheck||detail.bestCapture||detail.playedCheck||detail.playedCapture||["brilliant","great","miss"].includes(detail.kind));
   if(tacticalHighlight&&detail.bestUci?.slice(0,2)===square)classes.push("coach-highlight-from");
   if(tacticalHighlight&&detail.bestUci?.slice(2,4)===square)classes.push("coach-highlight");
   if(pvSquares.includes(square))classes.push("pv-highlight");
