@@ -16,17 +16,34 @@ function formatEval(cp){
  const value=(cp/100).toFixed(1);return cp>0?"+"+value:value.replace("-","−");
 }
 function coachMessage(detail){
- if(!detail)return {title:"Ton coach est prêt",body:"Fais défiler les coups : je commenterai chaque position et les idées que Stockfish recommande.",tip:"Conseil : avant chaque coup, vérifie les échecs, les captures et les menaces de ton adversaire."};
- const best=detail.best||"le meilleur coup";
- if(detail.color!==((active?.white||"").toLowerCase()==="gone_1950"?"w":"b")){
-  return {title:"Au tour de l’adversaire",body:"L’adversaire a joué "+(detail.played||"un coup")+". Dans cette position, Stockfish préfère "+best+". Observe cette idée : elle t’indique la réponse la plus précise à envisager.",tip:"Demande-toi toujours quelle menace vient de créer le dernier coup."};
- }
- if(Number(detail.loss||0)<35){
-  return {title:"Bien joué !",body:"Tu as joué "+(detail.played||"ce coup")+". C’est un choix proche de la meilleure décision : Stockfish propose "+best+". Tu as conservé l’essentiel de l’évaluation.",tip:"Continue à vérifier les menaces adverses avant de valider ton coup."};
- }
- const label=detail.label||"Coup à revoir";
+ if(!detail)return {title:"Analyse en préparation",body:"Je commence par examiner les premières positions. Les évaluations et les commentaires apparaîtront au fur et à mesure, pendant que tu peux déjà parcourir la partie.",tip:"Pour chaque décision, demande-toi ce que ton adversaire menace et quels sont tes coups forcés."};
+ const best=detail.best||"le meilleur coup",played=detail.played||"ton coup";
+ const userSide=((active?.white||"").toLowerCase()==="gone_1950"?"w":"b");
  const loss=Math.round(Number(detail.loss)||0);
- return {title:label+" : regardons pourquoi",body:"Tu as joué "+(detail.played||"ce coup")+", mais Stockfish préfère "+best+". Ce choix coûte environ "+loss+" centipions dans cette position. Rejoue la variante proposée et compare les menaces avant et après le coup.",tip:"Prends l’habitude de chercher d’abord les échecs, les prises et les menaces forcées. C’est souvent là que se trouve la différence."};
+ const evalBefore=Number(detail.evalWhite),evalAfter=Number(detail.afterEvalWhite);
+ const scoreText=Number.isFinite(evalBefore)?"La position était évaluée à "+formatEval(evalBefore)+" avant le coup. ":"";
+ if(detail.color!==userSide){
+  let reason="L’adversaire a joué "+played+". ";
+  if(detail.playedCheck)reason+="C’est un échec : il faut d’abord répondre à cette menace. ";
+  else if(detail.playedCapture)reason+="Il vient de prendre une pièce : vérifie si cette prise crée une menace supplémentaire ou si elle peut être reprise. ";
+  if(detail.bestCheck)reason+="La meilleure réponse est "+best+", un échec qui force l’adversaire à réagir. ";
+  else if(detail.bestCapture)reason+="La meilleure réponse est "+best+", une prise qui permet de gagner ou récupérer du matériel. ";
+  else reason+="Stockfish recommande "+best+" pour maintenir la position et répondre précisément à son idée. ";
+  return {title:"Répondre au coup adverse",body:scoreText+reason,tip:"Avant de jouer, vérifie les échecs, les prises et les menaces directes laissées par le dernier coup."};
+ }
+ if(loss<35){
+  let explanation="Tu as joué "+played+". C’est un coup précis : tu conserves l’essentiel de l’évaluation et Stockfish ne trouve pas d’amélioration significative.";
+  if(detail.playedCheck)explanation+=" L’échec oblige ton adversaire à répondre.";
+  else if(detail.playedCapture)explanation+=" La prise est cohérente avec la position.";
+  return {title:"Bon coup",body:scoreText+explanation,tip:"Essaie d’identifier ce qui rend ce coup utile : activité des pièces, sécurité du roi, contrôle du centre ou gain de matériel."};
+ }
+ let explanation="Tu as joué "+played+", mais Stockfish préfère "+best+". La différence estimée est de "+loss+" centipions pour ton camp.";
+ if(detail.bestMate)explanation+=" Cette suite mène à un mat forcé.";
+ else if(detail.bestCheck)explanation+=" Le coup "+best+" commence par un échec : c’était une ressource tactique à examiner en priorité.";
+ else if(detail.bestCapture&&!detail.playedCapture)explanation+=" Tu as manqué une prise importante : examine la pièce visée par "+best+" et vérifie si elle est réellement défendue.";
+ else if(detail.playedCapture)explanation+=" La prise jouée ne semble pas être la meilleure façon de traiter la position : compare les pièces qui restent attaquées après "+played+".";
+ else explanation+=" Le coup joué laisse une meilleure ressource à l’adversaire ou manque une amélioration immédiate. Compare les cases de départ et d’arrivée de "+best+" pour voir ce que ce coup améliore.";
+ return {title:detail.label||"Coup à corriger",body:scoreText+explanation,tip:"Rejoue d’abord "+best+" sur l’échiquier. Regarde ensuite ce qui change : menace créée, pièce sauvée, défense supprimée ou activité gagnée."};
 }
 function currentDetail(){
  if(freeBoard)return null;
@@ -85,7 +102,8 @@ function render(){
  const evalMarkup='<div class="eval-column"><strong class="eval-score">'+formatEval(cp)+'</strong><div class="eval-bar-track" aria-label="Évaluation du point de vue des Blancs"><div class="eval-black" style="height:'+(100-whitePct)+'%"></div><div class="eval-white" style="height:'+whitePct+'%"></div></div><small class="eval-perspective">Blancs</small></div>';
  const pvLine=(detail?.pvSan||[]).map((san,i)=>'<button type="button" class="pv-step '+(variationIndex===i+1?"active":"")+'" data-pv-step="'+(i+1)+'">'+esc(san)+'</button>').join("");
  const pvPanel=detail&&pvLine?'<div class="pv-panel"><div class="pv-heading"><strong>Meilleure variante Stockfish</strong><span>Touche un coup pour suivre la ligne</span></div><div class="pv-moves"><button type="button" class="pv-step '+(variationIndex===0?"active":"")+'" data-pv-step="0">Départ</button>'+pvLine+'</div></div>':"";
- const coach=coachMessage(detail);
+ const coachDetail=!freeBoard&&index>0?(active?.analysis?.positionDetails?.[index-1]||null):null;
+ const coach=coachMessage(coachDetail);
  const coachPanel='<aside class="review-side"><section class="coach-card"><div class="coach-avatar" aria-hidden="true">♞</div><div class="coach-identity"><strong>Ton coach</strong><span>Analyse Stockfish · en direct</span></div><div class="coach-message"><strong>'+esc(freeBoard?"À toi de jouer !":coach.title)+'</strong><p>'+esc(freeBoard?"Sélectionne une pièce : les cases où elle peut aller sont indiquées par des points. Les commandes sous l’échiquier permettent d’annuler et de rejouer tes coups.":coach.body)+'</p><small>'+esc(freeBoard?"Les coordonnées des cases restent visibles pour t'aider à lire les positions.":coach.tip)+'</small></div></section></aside>';
  const controls=freeBoard
   ?'<div class="replay-controls free-navigation"><button class="icon-nav" data-free-reset="1" title="Revenir à la position de départ" aria-label="Revenir à la position de départ">|◀</button><button class="icon-nav" data-free-undo="1" '+(freeBoard.history().length?"":"disabled")+' title="Annuler le coup" aria-label="Annuler le coup">◀</button><button class="icon-nav" data-free-redo="1" '+(freeRedo.length?"":"disabled")+' title="Rejouer le coup annulé" aria-label="Rejouer le coup annulé">▶</button><button class="icon-nav" data-free-exit="1" title="Quitter la partie libre" aria-label="Quitter la partie libre">✕</button></div>'
@@ -163,5 +181,10 @@ document.addEventListener("click",e=>{
  if(e.target.closest("[data-review-start]")&&active&&!freeBoard){if(index!==0){activeAnalysisMove=null;variationIndex=0;index=0;playMoveSound(-1);render();}return;}
  if(e.target.closest("[data-review-end]")&&active&&!freeBoard){if(index!==moves.length){activeAnalysisMove=null;variationIndex=0;index=moves.length;playMoveSound(1);render();}}
 });
-window.CoachReview={open,setAnalysis,showAnalysisMove};
+function updateAnalysis(list,game){
+ if(game)active=game;
+ analysisMoves=list||[];
+ render();
+}
+window.CoachReview={open,setAnalysis,updateAnalysis,showAnalysisMove};
 window.addEventListener("coach:review-game",event=>open(event.detail?.gameId));
