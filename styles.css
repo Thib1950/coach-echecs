@@ -205,3 +205,40 @@ html,body,button,a,input,select{touch-action:manipulation}
 #panel-training .engine-surface>.surface-heading{border-bottom:1px solid #354b63;padding-bottom:12px}
 #build-version{font-variant-numeric:tabular-nums;color:#a9bbcf}
 @media(max-width:600px){#panel-training .training-kpis{gap:9px}.training-kpi{padding:14px;min-height:112px}.training-kpi strong{font-size:29px}.game-elo span{font-size:9px}}
+
+/* Version 27 : activité récente et diagnostic plus lisibles */
+.recent-game-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:16px;padding:14px 17px;background:linear-gradient(110deg,#17283a,#142237);border:1px solid #34485d;border-radius:12px}
+.recent-game-main{min-width:0}
+.recent-game-opponent{font:700 14px Manrope,sans-serif;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.opponent-elo{display:inline-flex;align-items:center;padding:4px 8px;border-radius:7px;background:#273b4d;color:#dce9f5;font:800 12px 'DM Sans',sans-serif;font-variant-numeric:tabular-nums}
+.recent-game-meta{font-size:10px;color:var(--muted);margin-top:7px}
+.recent-game-precision{min-width:90px;text-align:right;display:grid;gap:3px}
+.recent-game-precision span{font-size:9px;letter-spacing:1px;font-weight:800;color:#a9bbcf}
+.recent-game-precision strong{font:800 25px Manrope;color:#d8f2a5;font-variant-numeric:tabular-nums}
+.recent-review-button{width:34px;height:34px;border:1px solid #486174;border-radius:9px;background:#20364a;color:#dce9f5;font-size:18px;cursor:pointer}
+.game-opponent .opponent-elo{font-size:10px;padding:3px 6px}
+.training-trend-main{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.training-trend-main #training-accuracy-delta{font:800 19px Manrope}
+#training-accuracy-delta.trend-up{color:#9fe0a9}
+#training-accuracy-delta.trend-down{color:#ff9e9e}
+#training-accuracy-delta.trend-neutral{color:#aebdca}
+.analysis-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:17px}
+.analysis-summary .summary-metric{display:grid;grid-template-columns:32px 1fr;grid-template-rows:auto auto;align-items:center;column-gap:9px;row-gap:3px;padding:13px;border:1px solid transparent;border-radius:12px}
+.summary-metric .metric-icon{grid-row:1/3;width:30px;height:30px;display:grid;place-items:center;border-radius:9px;font:900 12px Manrope}
+.summary-metric strong{font:800 25px Manrope;line-height:1.05;font-variant-numeric:tabular-nums}
+.summary-metric .metric-label{font-size:10px;font-weight:700;letter-spacing:.2px}
+.summary-metric.inaccuracy{background:#3a3425;border-color:#65532e;color:#f2d58a}
+.summary-metric.inaccuracy .metric-icon{background:#66552e;color:#fff0bd}
+.summary-metric.mistake{background:#422f25;border-color:#70442c;color:#ffbd8a}
+.summary-metric.mistake .metric-icon{background:#75462d;color:#ffe0c8}
+.summary-metric.blunder{background:#42272e;border-color:#78404a;color:#ff9fa9}
+.summary-metric.blunder .metric-icon{background:#793d49;color:#ffe0e3}
+.summary-metric.precision{background:#263a31;border-color:#42664f;color:#c5edb8}
+.summary-metric.precision .metric-icon{background:#3c6647;color:#e5ffda}
+@media(max-width:650px){
+ .recent-game-row{grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:12px}
+ .recent-game-precision{grid-column:2;grid-row:1;min-width:75px}
+ .recent-review-button{grid-column:1/-1;width:100%;height:31px;font-size:14px}
+ .recent-game-precision strong{font-size:22px}
+ .analysis-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
