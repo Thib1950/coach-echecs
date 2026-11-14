@@ -54,11 +54,21 @@ function render(){
 function renderDetail(g){
  currentKey=g.key;exercise=null;
  const variants=[...g.variants.values()].sort((a,b)=>b.count-a.count);
- const variantsHtml=variants.map((v,i)=>'<div class="opening-variant-row"><div><strong>'+esc(v.name)+'</strong><small>'+v.count+' partie(s) · '+esc(v.book?.eco||"Variante issue de tes parties")+'</small></div><button type="button" data-opening-exercise="'+i+'">Travailler cette ligne</button></div>').join("");
+ const variantsHtml=variants.map((v,i)=>'<div class="opening-variant-row"><div><strong>'+esc(v.name)+'</strong><small>'+v.count+' partie(s) · '+esc(v.book?.eco||"Variante issue de tes parties")+'</small></div><div class="opening-variant-actions"><button type="button" data-opening-preview="'+i+'">Voir la ligne</button><button type="button" data-opening-exercise="'+i+'">Exercice</button></div></div><div class="opening-variant-preview" id="opening-preview-'+i+'" hidden></div>').join("");
  $("opening-detail").innerHTML='<article class="surface opening-detail-card"><div class="surface-heading"><div><p class="eyebrow">OUVERTURE À TRAVAILLER</p><h3>'+esc(g.family)+'</h3><p class="muted">'+g.games.length+' partie(s) dans ton historique · '+g.white+' avec les Blancs · '+g.black+' avec les Noirs</p></div><button class="text-button" id="close-opening-detail">Fermer ✕</button></div><div class="opening-variants"><h4>Variantes repérées dans tes parties</h4>'+variantsHtml+'</div><div id="opening-practice"></div></article>';
  $("close-opening-detail").addEventListener("click",()=>{$("opening-detail").innerHTML="";currentKey=null;exercise=null;});
  $("opening-detail").querySelectorAll("[data-opening-exercise]").forEach(button=>button.addEventListener("click",()=>startExercise(g,variants[Number(button.dataset.openingExercise)])));
+ $("opening-detail").querySelectorAll("[data-opening-preview]").forEach(button=>button.addEventListener("click",()=>renderVariantPreview(variants[Number(button.dataset.openingPreview)],Number(button.dataset.openingPreview))));
  $("opening-detail").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function renderVariantPreview(variant,index){
+ const root=$("opening-preview-"+index);if(!root)return;
+ const line=(variant.book?.moves?.length?variant.book.moves:gameMoves(variant.games[0]||{})).slice(0,8);
+ if(!line.length){root.hidden=false;root.innerHTML='<p class="muted">Aucune suite de coups exploitable pour cette variante.</p>';return;}
+ const board=new Chess();for(const uci of line){try{board.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]});}catch{break;}}
+ const files="abcdefgh",glyphs={wk:"♔",wq:"♕",wr:"♖",wb:"♗",wn:"♘",wp:"♙",bk:"♚",bq:"♛",br:"♜",bb:"♝",bn:"♞",bp:"♟"};
+ let cells="";for(let rank=8;rank>=1;rank--)for(let f=0;f<8;f++){const file=files[f],piece=board.get(file+rank),light=((rank-1+f)%2)===1;cells+='<div class="opening-preview-square '+(light?"light":"dark")+'">'+(piece?'<img src="https://lichess1.org/assets/piece/cburnett/'+piece.color+piece.type.toUpperCase()+'.svg" alt="'+glyphs[piece.color+piece.type]+'">':"")+'</div>';}
+ root.hidden=false;root.innerHTML='<div class="opening-preview-board">'+cells+'</div><div class="opening-preview-info"><strong>Position après '+Math.ceil(line.length/2)+' coups</strong><p>'+esc(sanLine(line))+'</p><small>Observe le placement des pièces et la structure de pions caractéristiques de cette ligne.</small></div>';
 }
 function startExercise(group,variant){
  const game=variant.games.slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""))[0];
