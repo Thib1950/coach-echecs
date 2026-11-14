@@ -27,3 +27,22 @@
 @media(max-width:650px){.replay-layout{grid-template-columns:1fr}.replay-board{max-width:420px;margin:auto}.replay-controls{display:grid;grid-template-columns:1fr 1fr}.replay-controls .text-button{grid-column:1/-1}}
 
 .review-position-label{margin:10px 0 14px;padding:10px 12px;background:#1b2b40;border:1px solid var(--line);border-radius:9px;color:#dce8f5;font-size:12px;font-weight:700}.review-action{margin-top:10px;padding:13px;background:#1b2b40;border:1px solid #40566d;border-radius:10px}.review-action strong{font:700 13px Manrope}.review-action p{font-size:11px;margin:7px 0 11px}.review-action .primary-button{width:100%}#game-replay-area{scroll-margin-top:18px}
+
+
+/* Pièces SVG et flèches d'analyse */
+.replay-board{position:relative;isolation:isolate}
+.replay-square{position:relative}
+.chess-piece-image{display:block;width:88%;height:88%;object-fit:contain;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.22))}
+.board-arrows{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;overflow:visible}
+.board-analysis-note{display:grid;gap:6px;margin-top:14px;padding:13px 15px;border:1px solid #40566d;border-radius:10px;background:#1b2b40}
+.board-analysis-note strong{font:700 14px Manrope;color:#b8f18a}
+.board-analysis-note span{font-size:12px;color:#e5edf6}
+.board-analysis-note small{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:7px}
+.arrow-key{display:inline-block;width:18px;height:4px;border-radius:4px;margin-left:8px}
+.best-key{background:#9be564}.played-key{background:#ffb45e}
+.analysis-move-button{width:100%;text-align:left;color:var(--text);font:inherit;cursor:pointer}
+.analysis-move-button:active{border-color:var(--green);background:#1d3046}
+.analysis-move-main{min-width:0;flex:1}
+.analysis-move-main small{line-height:1.5}
+.analysis-move-main small b{color:#b8f18a}
+@media(max-width:650px){.chess-piece-image{width:90%;height:90%}.board-analysis-note{margin-top:12px}}
