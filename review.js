@@ -26,7 +26,7 @@ function ensureOpeningName(game){
 function coachMessage(detail){
  if(!detail||detail.loss===null||detail.loss===undefined)return {title:"Position en cours",body:"Je vérifie les possibilités de cette position. Le meilleur coup et son idée apparaîtront ici.",tip:""};
  const userSide=((active?.white||"").toLowerCase()==="gone_1950"?"w":"b");
- if(detail.color!==userSide){const opening=active?.opening||active?.displayOpening;return {title:opening?"Ligne : "+opening:"Coup adverse",body:opening?"Ton adversaire a choisi "+(detail.played||"un coup")+" dans cette ouverture. La position est prise en compte pour préparer ta réponse au coup suivant.":"Voici la réponse jouée par ton adversaire. Avance d’un coup pour voir le choix adapté à cette position.",tip:""};}
+ if(detail.color!==userSide){const opening=frenchOpeningName(active?.opening||active?.displayOpening||"");return {title:opening?"Ligne : "+opening:"Coup adverse",body:opening?"Ton adversaire a choisi "+(detail.played||"un coup")+" dans cette ouverture. La position est prise en compte pour préparer ta réponse au coup suivant.":"Voici la réponse jouée par ton adversaire. Avance d’un coup pour voir le choix adapté à cette position.",tip:""};}
  const loss=Math.max(0,Number(detail.loss)||0);
  const bestBoard=new Chess(detail.fen);
  const bestMove=bestBoard.moves({verbose:true}).find(m=>m.from+m.to+(m.promotion||"")===detail.bestUci);
@@ -70,7 +70,7 @@ function coachMessage(detail){
    }
   }catch{}
  }
- if(detail.kind==="book"&&(active?.opening||active?.displayOpening)){const opening=active.opening||active.displayOpening;return {title:"Réponse dans l’ouverture",body:"Dans la "+opening+", après le choix adverse, Stockfish recommande "+(detail.best||"ce coup")+". "+idea,tip:"Le conseil tient compte de la ligne réellement jouée et de la position obtenue."};}
+ if(detail.kind==="book"&&(active?.opening||active?.displayOpening)){const opening=frenchOpeningName(active.opening||active.displayOpening);return {title:"Réponse dans l’ouverture",body:"Dans la "+opening+", après le choix adverse, Stockfish recommande "+(detail.best||"ce coup")+". "+idea,tip:"Le conseil tient compte de la ligne réellement jouée et de la position obtenue."};}
  let body;
  if(loss<15){
   body=detail.bestUci===detail.playedUci?"Tu as trouvé le meilleur coup. "+idea:"Ton coup "+played+" reste jouable, mais le meilleur choix était "+(detail.best||"le coup indiqué")+". "+idea;
@@ -136,7 +136,7 @@ function render(){
  }
  const last=index?moves[index-1]:null;
  ensureOpeningName(active);
- const openingLabel=(active?.opening||active?.displayOpening||"").trim()||(active?.eco?"Ouverture en cours d’identification":"Ouverture non identifiée");
+ const openingLabel=frenchOpeningName(active?.opening||active?.displayOpening||"").trim()||(active?.eco?"Ouverture en cours d’identification":"Ouverture non identifiée");
  const label=freeBoard?"Mode libre · "+freeBoard.turn().toUpperCase()+" joue":openingLabel;
  const cp=freeBoard?null:(variationIndex?null:(detail?.evalWhite??active?.analysis?.positions?.[Math.min(index,(active?.analysis?.positions?.length||1)-1)]??null));
  const clamped=Math.max(-1000,Math.min(1000,Number(cp)||0));
