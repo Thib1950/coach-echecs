@@ -30,24 +30,23 @@ function coachMessage(detail){
 }
 function currentDetail(){
  if(freeBoard)return null;
- if(variationIndex>0)return null;
  return active?.analysis?.positionDetails?.[index]||activeAnalysisMove||null;
 }
 function render(){
  if(!active)return;
+ const detail=currentDetail();
  let board;
- const pv=activeAnalysisMove?.pvUci||[];
+ const pv=detail?.pvUci||[];
  try{
   if(freeBoard)board=new Chess(freeBoard.fen());
-  else if(activeAnalysisMove&&variationIndex>0){
-   board=new Chess(activeAnalysisMove.fen);
+  else if(detail&&variationIndex>0){
+   board=new Chess(detail.fen);
    for(const uci of pv.slice(0,variationIndex))board.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]});
   }else{
    board=new Chess();
    for(let i=0;i<index;i++){const m=moves[i];board.move({from:m.from,to:m.to,promotion:m.promotion});}
   }
  }catch{board=new Chess();}
- const detail=currentDetail();
  const lastPv=variationIndex>0?pv[variationIndex-1]:null;
  const pvSquares=lastPv?[lastPv.slice(0,2),lastPv.slice(2,4)]:[];
  const selectedSquares=freeSelected?[freeSelected]:[];
@@ -72,8 +71,8 @@ function render(){
  const clamped=Math.max(-1000,Math.min(1000,Number(cp)||0));
  const whitePct=100/(1+Math.exp(-0.00368208*clamped));
  const evalMarkup='<div class="eval-column"><strong class="eval-score">'+formatEval(cp)+'</strong><div class="eval-bar-track" aria-label="Évaluation du point de vue des Blancs"><div class="eval-black" style="height:'+(100-whitePct)+'%"></div><div class="eval-white" style="height:'+whitePct+'%"></div></div><small class="eval-perspective">Blancs</small></div>';
- const pvLine=(activeAnalysisMove?.pvSan||[]).map((san,i)=>'<button type="button" class="pv-step '+(variationIndex===i+1?"active":"")+'" data-pv-step="'+(i+1)+'">'+esc(san)+'</button>').join("");
- const pvPanel=activeAnalysisMove&&pvLine?'<div class="pv-panel"><div class="pv-heading"><strong>Meilleure variante Stockfish</strong><span>Touche un coup pour suivre la ligne</span></div><div class="pv-moves"><button type="button" class="pv-step '+(variationIndex===0?"active":"")+'" data-pv-step="0">Départ</button>'+pvLine+'</div></div>':"";
+ const pvLine=(detail?.pvSan||[]).map((san,i)=>'<button type="button" class="pv-step '+(variationIndex===i+1?"active":"")+'" data-pv-step="'+(i+1)+'">'+esc(san)+'</button>').join("");
+ const pvPanel=detail&&pvLine?'<div class="pv-panel"><div class="pv-heading"><strong>Meilleure variante Stockfish</strong><span>Touche un coup pour suivre la ligne</span></div><div class="pv-moves"><button type="button" class="pv-step '+(variationIndex===0?"active":"")+'" data-pv-step="0">Départ</button>'+pvLine+'</div></div>':"";
  const coach=coachMessage(detail);
  const coachPanel='<aside class="review-side"><section class="coach-card"><div class="coach-avatar" aria-hidden="true">♞</div><div class="coach-identity"><strong>Ton coach</strong><span>Analyse Stockfish · en direct</span></div><div class="coach-message"><strong>'+esc(freeBoard?"À toi de jouer !":coach.title)+'</strong><p>'+esc(freeBoard?"Essaie une continuation. Les coups légaux sont acceptés sur l’échiquier. Tu peux annuler ou revenir à la position de départ à tout moment.":coach.body)+'</p><small>'+esc(freeBoard?"Joue librement, puis compare tes idées à la variante du moteur.":coach.tip)+'</small></div></section><div class="free-play-controls">'+(freeBoard?'<button type="button" class="secondary-button" data-free-undo="1" '+(freeBoard.history().length?"":"disabled")+'>↶ Annuler le coup</button><button type="button" class="secondary-button" data-free-reset="1">Revenir à la position</button><button type="button" class="text-button" data-free-exit="1">Quitter le mode libre</button>':'<button type="button" class="secondary-button free-play-button" data-free-start="1">▶ Continuer la partie depuis cette position</button>')+'</div></aside>';
  const controls='<div class="replay-controls"><button class="icon-nav" data-review-start="1" title="Revenir au début" aria-label="Revenir au début">|◀</button><button class="icon-nav" data-review-step="-1" '+(index===0||freeBoard?"disabled":"")+' title="Coup précédent" aria-label="Coup précédent">◀</button><button class="icon-nav" data-review-step="1" '+(index===moves.length||freeBoard?"disabled":"")+' title="Coup suivant" aria-label="Coup suivant">▶</button><button class="icon-nav" data-review-end="1" title="Aller à la fin" aria-label="Aller à la fin" '+(freeBoard?"disabled":"")+'>▶|</button></div>';
@@ -132,7 +131,7 @@ function handleFreeSquare(square){
 }
 document.addEventListener("click",e=>{
  const pvStep=e.target.closest("[data-pv-step]");
- if(pvStep&&activeAnalysisMove&&!freeBoard){variationIndex=Math.max(0,Math.min((activeAnalysisMove.pvUci||[]).length,Number(pvStep.dataset.pvStep)||0));render();return;}
+ if(pvStep&&currentDetail()&&!freeBoard){variationIndex=Math.max(0,Math.min((activeAnalysisMove.pvUci||[]).length,Number(pvStep.dataset.pvStep)||0));render();return;}
  if(e.target.closest("[data-free-start]")){
   const displayed=new Chess();if(activeAnalysisMove&&variationIndex>0){displayed.load(activeAnalysisMove.fen);for(const uci of (activeAnalysisMove.pvUci||[]).slice(0,variationIndex))displayed.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]});}
   else{for(let i=0;i<index;i++){const m=moves[i];displayed.move({from:m.from,to:m.to,promotion:m.promotion});}}
