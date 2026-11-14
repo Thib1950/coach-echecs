@@ -99,3 +99,10 @@ document.querySelectorAll("[data-goto]").forEach(btn=>btn.addEventListener("clic
 $("sync-button").addEventListener("click",syncChessCom);$("sync-button-games").addEventListener("click",syncChessCom);$("pgn-file").addEventListener("change",e=>importPgnFile(e.target.files[0]));$("game-search").addEventListener("input",()=>renderGames([...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""))));$("result-filter").addEventListener("change",()=>renderGames([...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""))));$("opening-color-filter").addEventListener("change",drawOpeningTable);
 games=readStoredGames();render();
 if("serviceWorker" in navigator && location.protocol.startsWith("http"))window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+
+
+// Interface publique minimale pour le module d'analyse moteur.
+window.CoachApp = { getGames: () => games, saveGames: () => saveGames() };
+const renderBeforeAnalysis = render;
+render = function(){ renderBeforeAnalysis(); window.dispatchEvent(new Event("coach:games-updated")); };
+render();
