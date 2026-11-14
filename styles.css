@@ -732,3 +732,6 @@ html,body,button,a,input,select{touch-action:manipulation}
  .opening-exercise-screen .opening-practice-layout{grid-template-columns:1fr}
  .opening-exercise-screen .opening-practice-board{max-width:620px;margin:0 auto}
 }
+.review-free-exit{min-height:42px;padding:0 15px;border:1px solid #607b94;border-radius:10px;background:#1b2b40;color:#edf3fa;font:750 11px 'DM Sans';cursor:pointer;white-space:nowrap}
+.review-free-exit:hover{background:#304963;border-color:#c5e86c}
+@media(max-width:760px){.review-free-exit{width:100%}}
