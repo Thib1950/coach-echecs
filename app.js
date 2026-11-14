@@ -1,4 +1,5 @@
 const USERNAME = "gone_1950";
+const DISPLAY_NAME = "Golden Under 1950";
 const STORAGE_KEY = "coach-echecs-v1";
 let games = [];
 const $ = (id) => document.getElementById(id);
@@ -44,11 +45,10 @@ function render(){
   renderGames(sorted);renderBars(wins,draws,losses);renderOpenings();renderTraining();
 }
 function gameHtml(g){
- const o=outcome(g), accuracy=g.analysis?.accuracy;
- const myElo=userColor(g)==="white"?g.whiteElo:g.blackElo, oppElo=userColor(g)==="white"?g.blackElo:g.whiteElo;
- const eloText=(myElo||oppElo)?("Ton Elo "+(myElo||"—")+" · Adversaire "+(oppElo||"—")):"Elo indisponibles";
- const accuracyText=Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":"À analyser";
- return '<div class="game-row"><div><div class="game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="game-meta">'+formatDate(g.date)+' · '+escapeHtml(g.timeControl||"Cadence inconnue")+' · '+escapeHtml(eloText)+(openingName(g)?" · "+escapeHtml(openingName(g)):"")+'</div><div class="game-analysis-meta">Précision : <b>'+accuracyText+'</b></div></div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="lesson-launch" data-open-game="'+escapeHtml(g.id)+'">Revoir / analyser →</button></div>';
+ const o=outcome(g), accuracy=g.analysis?.partial?null:g.analysis?.accuracy;
+ const accuracyText=Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.analysis?.partial?"Analyse en cours":"À analyser");
+ const whiteElo=g.whiteElo||"—",blackElo=g.blackElo||"—";
+ return '<div class="game-row"><div><div class="game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="game-meta">'+formatDate(g.date)+' · '+escapeHtml(g.timeControl||"Cadence inconnue")+(openingName(g)?" · "+escapeHtml(openingName(g)):"")+'</div><div class="game-elo"><span>Blancs <b>'+escapeHtml(whiteElo)+'</b></span><span>Noirs <b>'+escapeHtml(blackElo)+'</b></span><span>Précision <b>'+accuracyText+'</b></span></div></div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="lesson-launch" data-open-game="'+escapeHtml(g.id)+'">Revoir / analyser →</button></div>';
 }
 function renderGames(sorted){const q=($("game-search").value||"").toLowerCase(),f=$("result-filter").value;const filtered=sorted.filter(g=>(opponent(g)||"").toLowerCase().includes(q)&&(f==="all"||outcome(g)===f));$("games-list").innerHTML=filtered.length?filtered.map(gameHtml).join(""):'<div class="empty-state">Aucune partie ne correspond à ce filtre.</div>'}
 function renderBars(w,d,l){const n=w+d+l;if(!n){$("result-bars").innerHTML='<p class="muted">Les statistiques apparaîtront après l’import.</p>';return}const rows=[["Victoires",w],["Nulles",d],["Défaites",l]];$("result-bars").innerHTML=rows.map(([label,v])=>'<div class="bar-item"><span>'+label+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(v/n*100)+'%"></div></div><strong>'+v+'</strong></div>').join("")}
@@ -68,11 +68,11 @@ function drawOpeningTable(){
 function renderTraining(){
   const losses=games.filter(g=>outcome(g)==="loss").sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   const openings=groupOpenings(games);
-  $("training-losses").textContent=losses.length;$("training-openings").textContent=openings.length;
-  const analyzed=games.filter(g=>Number.isFinite(Number(g.analysis?.accuracy)));
+  $("training-losses").textContent=losses.length;
+  const analyzed=games.filter(g=>!g.analysis?.partial&&Number.isFinite(Number(g.analysis?.accuracy)));
   const averageAccuracy=analyzed.length?analyzed.reduce((sum,g)=>sum+Number(g.analysis.accuracy),0)/analyzed.length:null;
   const accuracyNode=$("training-accuracy");if(accuracyNode)accuracyNode.textContent=averageAccuracy===null?"—":Math.round(averageAccuracy)+" %";
-  const accuracyCount=$("training-accuracy-count");if(accuracyCount)accuracyCount.textContent=analyzed.length+" partie(s) analysée(s)";
+  const accuracyCount=$("training-accuracy-count");if(accuracyCount)accuracyCount.textContent=analyzed.length+" partie(s) entièrement analysée(s)";
   const byTime=new Map();games.forEach(g=>{const key=g.timeControl||"Cadence inconnue";if(!byTime.has(key))byTime.set(key,[]);byTime.get(key).push(g)});
   const weak=[...byTime.entries()].map(([name,list])=>{const w=list.filter(g=>outcome(g)==="win").length,d=list.filter(g=>outcome(g)==="draw").length,l=list.filter(g=>outcome(g)==="loss").length;return {name,count:w+d+l,score:(w+d/2)/(w+d+l||1)*100}}).filter(x=>x.count>=4).sort((a,b)=>a.score-b.score)[0];
   $("training-weak-time").textContent=weak?weak.name:"À confirmer"; 
