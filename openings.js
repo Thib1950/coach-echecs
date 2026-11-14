@@ -85,6 +85,7 @@ function startExercise(group,variant){
   const done=ply>=line.length;
   root.innerHTML='<div class="opening-practice-layout"><div class="opening-practice-board">'+cells+'</div><aside class="opening-practice-coach"><div class="coach-avatar">♞</div><p class="eyebrow">TON COACH</p><h4>'+esc(group.family)+'</h4><strong>'+(done?"Exercice terminé !":"À toi de jouer")+'</strong><p>'+esc(done?"Bravo, tu as parcouru toute la ligne d’ouverture. Tu peux recommencer pour la mémoriser.":feedback)+'</p><small>Joue les coups avec les pièces et les points de destination, comme dans l’onglet Entraînement.</small><button type="button" data-opening-reset>Recommencer</button></aside></div>';
  };
+ root.querySelectorAll(".chess-piece-image").forEach(img=>img.addEventListener("error",()=>{const fallback=document.createElement("span");fallback.className="piece";fallback.textContent=img.alt;img.replaceWith(fallback);},{once:true}));
  root.onclick=event=>{
   if(event.target.closest("[data-opening-reset]")){board=new Chess();ply=0;selected=null;feedback="Recommence la ligne : trouve le coup de développement attendu.";applyOpponentMoves();draw();return;}
   const button=event.target.closest("[data-opening-square]");if(!button||ply>=line.length)return;
