@@ -16,35 +16,32 @@ function formatEval(cp){
  const value=(cp/100).toFixed(1);return cp>0?"+"+value:value.replace("-","−");
 }
 function coachMessage(detail){
- if(!detail)return {title:"Analyse en préparation",body:"Je commence par examiner les premières positions. Les évaluations et les commentaires apparaîtront au fur et à mesure, pendant que tu peux déjà parcourir la partie.",tip:"Pour chaque décision, demande-toi ce que ton adversaire menace et quels sont tes coups forcés."};
- const best=detail.best||"le meilleur coup",played=detail.played||"ton coup";
+ if(!detail)return {title:"Analyse en préparation",body:"Stockfish examine la position. Je commenterai tes décisions au fur et à mesure.",tip:""};
  const userSide=((active?.white||"").toLowerCase()==="gone_1950"?"w":"b");
- const loss=Math.round(Number(detail.loss)||0);
- const evalBefore=Number(detail.evalWhite),evalAfter=Number(detail.afterEvalWhite);
- const scoreText=Number.isFinite(evalBefore)?"La position était évaluée à "+formatEval(evalBefore)+" avant le coup. ":"";
- if(detail.color!==userSide){
-  let reason="L’adversaire a joué "+played+". ";
-  if(detail.playedCheck)reason+="Il t’a mis en échec : commence par chercher toutes les réponses légales, puis vérifie s’il menace autre chose. ";
-  else if(detail.playedCapture)reason+="Il a choisi une prise. Vérifie si tu peux reprendre la pièce et si cette prise a laissé une autre pièce sans défense. ";
-  if(detail.loss>=90)reason+="Ce coup est une erreur pour lui : Stockfish préférait "+best+". ";
-  else if(detail.bestCheck)reason+="Il disposait d’un échec plus fort avec "+best+", qu’il n’a pas trouvé. ";
-  else if(detail.bestCapture)reason+="Il a manqué une prise importante avec "+best+". ";
-  else reason+="Le moteur préférait "+best+", mais l’écart reste limité : compare les deux plans pour comprendre la nuance. ";
-  return {title:"Lire le coup adverse",body:scoreText+reason,tip:"Cherche ce que le coup adverse a modifié : pièces attaquées, cases affaiblies, roi exposé ou possibilité de reprendre du matériel."};
+ if(detail.color!==userSide)return {title:"Prépare ton prochain coup",body:"Observe les menaces, les pièces non protégées et les possibilités tactiques. Je me concentre sur tes décisions, pas sur la description des coups adverses.",tip:""};
+ const best=detail.best||"le meilleur coup";
+ const loss=detail.loss===null||detail.loss===undefined?null:Math.max(0,Number(detail.loss)||0);
+ const line=(detail.pvSan||[]).slice(0,3).join(" · ");
+ if(loss!==null&&loss<35){
+  let body=detail.bestUci===detail.playedUci
+   ?"Tu as trouvé le meilleur coup. Il conserve l’avantage de la position sans laisser de ressource tactique à l’adversaire."
+   :"Ton choix reste très proche du meilleur : tu ne concèdes presque rien à l’adversaire.";
+  if(detail.playedMate)body="Excellent : tu as trouvé un coup qui mène au mat.";
+  else if(detail.playedCheck)body+=" L’échec est utile parce qu’il force l’adversaire à répondre avant de développer son propre plan.";
+  else if(detail.playedCapture)body+=" La prise est justifiée dans cette position : elle ne te fait pas perdre l’équilibre tactique.";
+  else if(detail.bestCapture)body+=" L’idée tactique à retenir est la prise disponible dans cette position.";
+  else if(line)body+=" Le plan de Stockfish se poursuit par "+line+".";
+  return {title:"Bon coup",body,tip:"À retenir : cherche si ton coup améliore une pièce, crée une menace ou neutralise celle de l’adversaire."};
  }
- if(loss<35){
-  let explanation="Tu as joué "+played+". C’est un coup précis : tu conserves l’essentiel de l’évaluation et Stockfish ne trouve pas d’amélioration significative.";
-  if(detail.playedCheck)explanation+=" L’échec oblige ton adversaire à répondre.";
-  else if(detail.playedCapture)explanation+=" La prise est cohérente avec la position.";
-  return {title:"Bon coup",body:scoreText+explanation,tip:"Essaie d’identifier ce qui rend ce coup utile : activité des pièces, sécurité du roi, contrôle du centre ou gain de matériel."};
- }
- let explanation="Tu as joué "+played+", mais Stockfish préfère "+best+". La différence estimée est de "+loss+" centipions pour ton camp.";
- if(detail.bestMate)explanation+=" Cette suite mène à un mat forcé.";
- else if(detail.bestCheck)explanation+=" Le coup "+best+" commence par un échec : c’était une ressource tactique à examiner en priorité.";
- else if(detail.bestCapture&&!detail.playedCapture)explanation+=" Tu as manqué une prise importante : examine la pièce visée par "+best+" et vérifie si elle est réellement défendue.";
- else if(detail.playedCapture)explanation+=" La prise jouée ne semble pas être la meilleure façon de traiter la position : compare les pièces qui restent attaquées après "+played+".";
- else explanation+=" Le coup joué laisse une meilleure ressource à l’adversaire ou manque une amélioration immédiate. Compare les cases de départ et d’arrivée de "+best+" pour voir ce que ce coup améliore.";
- return {title:detail.label||"Coup à corriger",body:scoreText+explanation,tip:"Rejoue d’abord "+best+" sur l’échiquier. Regarde ensuite ce qui change : menace créée, pièce sauvée, défense supprimée ou activité gagnée."};
+ let body="Stockfish préfère "+best+". ";
+ if(detail.bestMate)body+="Cette suite force le mat : la priorité était de créer ou d’empêcher cette menace.";
+ else if(detail.bestCheck)body+="L’idée est de jouer l’échec d’abord : tu obliges le roi adverse à réagir et tu gardes l’initiative.";
+ else if(detail.bestCapture&&!detail.playedCapture)body+="Tu pouvais exploiter une pièce vulnérable par une prise. Vérifie les pièces attaquées et le nombre de défenseurs.";
+ else if(detail.playedCapture)body+="La prise choisie ne règle pas le problème de la position. Avant de prendre, vérifie ce que ton adversaire pourra gagner ou attaquer ensuite.";
+ else if(line)body+="La suite proposée est "+line+". Elle maintient mieux la pression et évite la dégradation de ta position.";
+ else body+="Ton coup laisse une ressource plus forte à l’adversaire. Compare les cases contrôlées et les pièces protégées après les deux options.";
+ if(loss!==null)body+=" L’écart est d’environ "+(loss/100).toFixed(1)+" pion(s) pour ton camp.";
+ return {title:detail.label||"À corriger",body,tip:"Vérifie les échecs, les prises et les menaces avant de valider ton coup."};
 }
 function currentDetail(){
  if(freeBoard)return null;
