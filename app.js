@@ -37,7 +37,7 @@ function groupOpenings(source){const groups=new Map();source.forEach(g=>{const n
 function render(){
   const wins=games.filter(g=>outcome(g)==="win").length, draws=games.filter(g=>outcome(g)==="draw").length, losses=games.filter(g=>outcome(g)==="loss").length;
   $("stat-games").textContent=games.length;$("stat-wins").textContent=wins;$("stat-losses").textContent=losses;
-  $("sync-state").textContent="Version publiée · 14/11/2026 · v29";
+  $("sync-state").textContent="Version publiée · 14/11/2026 · v30";
   const sorted=[...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   $("recent-games").innerHTML=sorted.length?sorted.slice(0,4).map(recentGameHtml).join(""):'<div class="empty-state">Tes parties apparaîtront ici après l’import.</div>';
   renderGames(sorted);renderBars(wins,draws,losses);renderOpenings();renderTraining();
@@ -46,7 +46,7 @@ function gameHtml(g){
  const o=outcome(g),accuracy=g.analysis?.accuracy;
  const accuracyText=!g.analysis?.partial&&accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
  const side=userColor(g),opponentElo=side==="white"?g.blackElo:side==="black"?g.whiteElo:"";
- return '<div class="game-row game-row-expanded"><div class="game-row-info"><div class="game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="game-meta">'+formatDate(g.date)+'</div><div class="game-elo"><span>Ma précision <b>'+accuracyText+'</b></span></div></div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="analysis-icon-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir et analyser cette partie" title="Revoir et analyser cette partie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg></button></div>';
+ return '<div class="game-row game-row-expanded"><div class="game-row-info"><div class="game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="game-meta">'+formatDate(g.date)+'</div></div><div class="game-list-accuracy"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="analysis-icon-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir et analyser cette partie" title="Revoir et analyser cette partie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg></button></div>';
 }
 function recentGameHtml(g){
  const side=userColor(g),opponentElo=side==="white"?g.blackElo:side==="black"?g.whiteElo:"";
@@ -73,7 +73,7 @@ function renderTraining(){
   const losses=games.filter(g=>outcome(g)==="loss").sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   const analyzed=games.filter(g=>!g.analysis?.partial&&Array.isArray(g.analysis?.moves)).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   const accuracyForGroup=group=>{
-    const values=group.flatMap(g=>(g.analysis?.moves||[]).filter(m=>m.loss!==null&&m.loss!==undefined&&Number.isFinite(Number(m.loss))).map(m=>100*Math.exp(-0.01*Math.sqrt(Math.max(0,Number(m.loss))))));
+    const values=group.map(g=>g.analysis?.accuracy).filter(v=>typeof v==="number"&&Number.isFinite(v));
     return values.length?values.reduce((sum,value)=>sum+value,0)/values.length:null;
   };
   const recentCount=Math.min(10,Math.ceil(analyzed.length/2));
@@ -86,7 +86,7 @@ function renderTraining(){
   if(deltaNode){
     if(recentAccuracy!==null&&previousAccuracy!==null){
       const delta=Math.round(recentAccuracy-previousAccuracy);
-      deltaNode.textContent=(delta>0?"+":"")+delta+" pts";
+      deltaNode.textContent=(delta>0?"+":"")+delta+" %";
       deltaNode.className=delta>0?"trend-up":delta<0?"trend-down":"trend-neutral";
     }else{deltaNode.textContent="—";deltaNode.className="trend-neutral";}
   }
@@ -109,7 +109,7 @@ async function syncChessCom(){
     for(const url of urls){setMessage("Récupération de "+url.split("/").slice(-2).join("/")+"…");const res=await fetch(url,{headers:{"Accept":"application/json"}});if(!res.ok)continue;const data=await res.json();imported=imported.concat((data.games||[]).map(normalizeGame))}
     if(!imported.length)throw new Error("Aucune partie trouvée dans les trois dernières archives.");
     const byId=new Map(games.map(g=>[g.id,g]));imported.forEach(g=>byId.set(g.id,g));games=[...byId.values()].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-    saveGames();render();setMessage(imported.length+" parties récupérées ou actualisées. Les données sont conservées sur cet appareil.");$("sync-state").textContent="Version publiée · 14/11/2026 · v29";
+    saveGames();render();setMessage(imported.length+" parties récupérées ou actualisées. Les données sont conservées sur cet appareil.");$("sync-state").textContent="Version publiée · 14/11/2026 · v30";
   }catch(e){setMessage("La synchronisation automatique n'a pas abouti : "+e.message+". Tu peux importer un fichier PGN depuis Chess.com.")}
   finally{buttons.forEach((b,i)=>{b.disabled=false;b.textContent=i?"Synchroniser":"Récupérer mes parties"})}
 }
