@@ -49,11 +49,24 @@ function coachMessage(detail){
  }
  if(!idea)idea="Ce coup améliore ta position et évite la perte de matériel ou d’activité que provoquerait une autre décision.";
  const played=detail.played||"ton coup";
+ let concreteReply="";
+ if(loss>=15&&detail.playedUci&&detail.playedUci!==detail.bestUci){
+  try{
+   const afterPlayed=new Chess(detail.fen),pm=afterPlayed.moves({verbose:true}).find(m=>m.from+m.to+(m.promotion||"")===detail.playedUci);
+   if(pm){
+    afterPlayed.move({from:pm.from,to:pm.to,promotion:pm.promotion});
+    const names={p:"pion",n:"cavalier",b:"fou",r:"tour",q:"dame",k:"roi"},values={p:1,n:3,b:3,r:5,q:9,k:100};
+    const replies=afterPlayed.moves({verbose:true}).filter(m=>m.captured).sort((a,b)=>(values[b.captured]||0)-(values[a.captured]||0));
+    if(replies.length){const reply=replies[0];concreteReply=" Concrètement, après ce coup, l’adversaire peut jouer "+reply.san+" et prendre ton "+(names[reply.captured]||"pièce")+" en "+reply.to+".";}
+    else concreteReply=" La position devient moins favorable après ce coup, mais aucune prise tactique immédiate n’a été identifiée dans la réponse directe.";
+   }
+  }catch{}
+ }
  let body;
  if(loss<15){
   body=detail.bestUci===detail.playedUci?"Tu as trouvé le meilleur coup. "+idea:"Ton coup "+played+" reste jouable, mais le meilleur choix était "+(detail.best||"le coup indiqué")+". "+idea;
  }else{
-  body="Le meilleur coup était "+(detail.best||"le coup indiqué")+". "+idea+" Ton coup "+played+" laisse cette possibilité à l’adversaire.";
+  body="Le meilleur coup était "+(detail.best||"le coup indiqué")+". "+idea+" Ton coup "+played+" laisse une réponse plus forte à l’adversaire."+concreteReply;
  }
  return {title:loss<=0.01?"Coup parfait":loss<15?"Meilleur coup":detail.label||"À corriger",body,tip:"Les cases encadrées montrent la pièce à déplacer et sa destination."};
 }
@@ -109,7 +122,7 @@ function render(){
   const best=arrowDetail.bestUci,played=arrowDetail.playedUci;
   const colors={brilliant:"#42b7ff",great:"#54a9f5",best:"#72cf79",excellent:"#82c96b",good:"#82c96b",book:"#aeb8c4",inaccuracy:"#f0c34e",mistake:"#f39a42",blunder:"#ef5b62",miss:"#df75c8"};
   const playedColor=colors[arrowDetail.kind]||"#f39a42";
-  const bestColor=colors[arrowDetail.kind]||"#72cf79";
+  const bestColor="#72cf79";
   arrows='<svg class="board-arrows '+(orientation==="black"?"rotated":"")+'" viewBox="0 0 100 100" aria-hidden="true"><defs><marker id="bestArrow" markerWidth="3.6" markerHeight="3.6" refX="2.8" refY="1.8" orient="auto"><path d="M0,0 L3.6,1.8 L0,3.6 z" fill="'+bestColor+'"/></marker><marker id="playedArrow" markerWidth="3.6" markerHeight="3.6" refX="2.8" refY="1.8" orient="auto"><path d="M0,0 L3.6,1.8 L0,3.6 z" fill="'+playedColor+'"/></marker></defs>'+arrow(best?.slice(0,2),best?.slice(2,4),bestColor)+(played&&played!==best?arrow(played.slice(0,2),played.slice(2,4),playedColor,true):"")+'</svg>';
  }
  const last=index?moves[index-1]:null;
