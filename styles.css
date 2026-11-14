@@ -486,3 +486,9 @@ html,body,button,a,input,select{touch-action:manipulation}
  .opening-variant-row{align-items:flex-start}
  .opening-variant-row button{padding:9px 10px}
 }
+
+.opening-status{display:inline-flex;align-self:flex-end;width:max-content;padding:4px 7px;border-radius:6px;font-size:9px;font-weight:850;letter-spacing:.2px}
+.opening-status.needs-work{background:#4b292e;color:#ffadb4;border:1px solid #a34850}
+.opening-status.solid{background:#233f2b;color:#b7efb8;border:1px solid #477f4f}
+.opening-status.neutral{background:#303b49;color:#cbd5e1;border:1px solid #536274}
+@media(max-width:760px){.opening-status{align-self:flex-start}}
