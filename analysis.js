@@ -188,7 +188,7 @@ function openGameInCoach(gameId){
   return true;
 }
 window.addEventListener("coach:analyze-game",event=>openGameInCoach(event.detail?.gameId));
-$("analyse-game-button").addEventListener("click",analyseSelectedGame);
+$("analyse-game-button").addEventListener("click",()=>analyseSelectedGame());
 window.addEventListener("coach:games-updated",refreshGamePicker);
 window.CoachAnalysis={openGame:openGameInCoach,analyze:gameId=>openGameInCoach(gameId)};
 $("game-replay-area").addEventListener("click",event=>{
