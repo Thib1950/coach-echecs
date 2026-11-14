@@ -40,19 +40,10 @@
       </nav>
 
       <section class="panel active" id="panel-dashboard">
-        <div class="section-heading"><div><p class="eyebrow">TABLEAU DE BORD</p><h2>Salut, gone_1950 👋</h2></div><span class="sync-state" id="sync-state">Version publiée · 14/11/2026</span></div>
-        <div class="stats-grid">
-          <article class="stat-card"><span class="stat-label">PARTIES IMPORTÉES</span><strong id="stat-games">0</strong><span class="stat-note">Dans ton espace personnel</span></article>
-          <article class="stat-card stat-win"><span class="stat-label">VICTOIRES</span><strong id="stat-wins">0</strong><span class="stat-note" id="stat-winrate">En attente de tes parties</span></article>
-          <article class="stat-card stat-draw"><span class="stat-label">NULLES</span><strong id="stat-draws">0</strong><span class="stat-note">Résultats nuls</span></article>
-          <article class="stat-card stat-loss"><span class="stat-label">DÉFAITES</span><strong id="stat-losses">0</strong><span class="stat-note">Des occasions d'apprendre</span></article>
-        </div>
-        <div class="content-grid">
-          <article class="surface import-card">
-            <div class="button-row"><button class="primary-button" id="sync-button">Récupérer mes parties</button><label class="secondary-button file-button">Importer un PGN<input type="file" id="pgn-file" accept=".pgn,text/plain" hidden></label></div>
-            <p class="small muted" id="sync-message" aria-live="polite"></p>
-          </article>
-        </div>
+        <div class="section-heading dashboard-heading"><div><p class="eyebrow">TABLEAU DE BORD</p><h2>Salut, gone_1950 👋</h2></div></div>
+        <div class="dashboard-toolbar"><span class="sync-state" id="sync-state">Version publiée · 14/11/2026</span><div class="button-row"><button class="primary-button" id="sync-button">Récupérer mes parties</button><label class="secondary-button file-button">Importer un PGN<input type="file" id="pgn-file" accept=".pgn,text/plain" hidden></label></div></div>
+        <p class="small muted dashboard-sync-message" id="sync-message" aria-live="polite"></p>
+        <div class="stats-grid dashboard-stats"><article class="stat-card"><span class="stat-label">PARTIES IMPORTÉES</span><strong id="stat-games">0</strong></article><article class="stat-card stat-win"><span class="stat-label">VICTOIRES</span><strong id="stat-wins">0</strong></article><article class="stat-card stat-loss"><span class="stat-label">DÉFAITES</span><strong id="stat-losses">0</strong></article></div>
         <article class="surface recent-surface"><div class="surface-heading"><div><p class="eyebrow">ACTIVITÉ RÉCENTE</p><h3>Dernières parties</h3></div><button class="text-button" data-goto="games">Tout voir →</button></div><div id="recent-games" class="empty-state">Tes parties apparaîtront ici après l'import.</div><p id="accuracy-queue-status" class="small muted" aria-live="polite"></p></article>
       </section>
 
@@ -79,7 +70,7 @@
           <div id="analysis-progress" class="analysis-progress" hidden><div class="analysis-progress-track"><div id="analysis-progress-fill"></div></div><p id="analysis-progress-label">Préparation du moteur…</p></div>
           <div id="game-replay-area"></div><div id="analysis-results"><div class="empty-state compact">Sélectionne une partie puis lance l'analyse pour obtenir des commentaires sur tes coups.</div></div><div id="lesson-area"></div>
         </article>
-        <p class="small muted">Le moteur Stockfish 19 Lite WebAssembly est chargé dans un Worker de même origine et mis en cache sur ton appareil. Le premier lancement télécharge environ 3,5 Mo ; les analyses suivantes réutilisent le moteur en cache.</p>
+        <p class="small muted">Stockfish 19 Lite est lancé uniquement lorsque tu demandes une analyse. Aucun calcul moteur ne tourne automatiquement en arrière-plan.</p>
       </section>
 
       <section class="panel" id="panel-openings">
@@ -98,12 +89,12 @@
         <div class="content-grid"><article class="surface"><h3>Résultats des parties importées</h3><div id="result-bars" class="bar-list"><p class="muted">Les statistiques apparaîtront après l'import.</p></div></article><article class="surface"><h3>Prochaine étape</h3><p>Analyser chaque partie avec un moteur d'échecs, mesurer les pertes d'évaluation et classer les erreurs par thème.</p><span class="status-pill">Analyse Stockfish : prochaine étape</span></article></div>
       </section>
     </main>
-    <footer><span>MON COACH D'ÉCHECS</span><span>Version publiée · 14/11/2026 · v28</span></footer>
+    <footer><span>MON COACH D'ÉCHECS</span><span>Version publiée · 14/11/2026 · v29</span></footer>
   </div>
   <script src="app.js"></script>
   <script type="module" src="review.js"></script>
   <script type="module" src="analysis.js"></script>
   <script type="module" src="lesson.js"></script>
-  <script type="module" src="openings.js"></script>
+  
 </body>
 </html>
