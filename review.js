@@ -16,32 +16,46 @@ function formatEval(cp){
  const value=(cp/100).toFixed(1);return cp>0?"+"+value:value.replace("-","−");
 }
 function coachMessage(detail){
- if(!detail)return {title:"Analyse en préparation",body:"Stockfish examine la position. Je commenterai tes décisions au fur et à mesure.",tip:""};
+ if(!detail||detail.loss===null||detail.loss===undefined)return {title:"Position en cours",body:"Je vérifie les possibilités de cette position. Le meilleur coup et son idée apparaîtront ici.",tip:""};
  const userSide=((active?.white||"").toLowerCase()==="gone_1950"?"w":"b");
- if(detail.color!==userSide)return {title:"Prépare ton prochain coup",body:"Observe les menaces, les pièces non protégées et les possibilités tactiques. Je me concentre sur tes décisions, pas sur la description des coups adverses.",tip:""};
- const best=detail.best||"le meilleur coup";
- const loss=detail.loss===null||detail.loss===undefined?null:Math.max(0,Number(detail.loss)||0);
- const line=(detail.pvSan||[]).slice(0,3).join(" · ");
- if(loss!==null&&loss<35){
-  let body=detail.bestUci===detail.playedUci
-   ?"Tu as trouvé le meilleur coup. Il conserve l’avantage de la position sans laisser de ressource tactique à l’adversaire."
-   :"Ton choix reste très proche du meilleur : tu ne concèdes presque rien à l’adversaire.";
-  if(detail.playedMate)body="Excellent : tu as trouvé un coup qui mène au mat.";
-  else if(detail.playedCheck)body+=" L’échec est utile parce qu’il force l’adversaire à répondre avant de développer son propre plan.";
-  else if(detail.playedCapture)body+=" La prise est justifiée dans cette position : elle ne te fait pas perdre l’équilibre tactique.";
-  else if(detail.bestCapture)body+=" L’idée tactique à retenir est la prise disponible dans cette position.";
-  else if(line)body+=" Le plan de Stockfish se poursuit par "+line+".";
-  return {title:"Bon coup",body,tip:"À retenir : cherche si ton coup améliore une pièce, crée une menace ou neutralise celle de l’adversaire."};
+ if(detail.color!==userSide)return {title:"À toi de jouer",body:"À toi de choisir : vérifie les échecs, les prises et les menaces avant de jouer.",tip:""};
+ const loss=Math.max(0,Number(detail.loss)||0);
+ const bestBoard=new Chess(detail.fen);
+ const bestMove=bestBoard.moves({verbose:true}).find(m=>m.from+m.to+(m.promotion||"")===detail.bestUci);
+ let idea="";
+ if(bestMove){
+  const names={p:"pion",n:"cavalier",b:"fou",r:"tour",q:"dame",k:"roi"};
+  const pieceName=names[bestMove.piece]||"pièce";
+  const target=bestBoard.get(bestMove.to);
+  if(detail.bestMate)idea="Ce coup mène au mat : il n’y a plus de défense suffisante.";
+  else if(detail.bestCheck)idea="Tu donnes échec et tu obliges le roi adverse à répondre immédiatement.";
+  else if(bestMove.captured)idea="Tu prends le "+(names[bestMove.captured]||"pièce adverse")+" en "+bestMove.to+". Cette prise gagne du matériel sans laisser de compensation suffisante.";
+  else{
+   const after=new Chess(detail.fen);after.move({from:bestMove.from,to:bestMove.to,promotion:bestMove.promotion});
+   const fenParts=after.fen().split(" ");fenParts[1]=detail.color;
+   let threats=[];
+   try{const sameSide=new Chess(fenParts.join(" "));threats=sameSide.moves({square:bestMove.to,verbose:true}).filter(m=>m.captured);}catch{}
+   const threat=threats[0];
+   if(threat){
+    const targetName=names[threat.captured]||"pièce";
+    idea="Depuis "+bestMove.to+", ton "+pieceName+" attaque le "+targetName+" adverse en "+threat.to+". Tu crées une menace concrète.";
+   }else if(bestMove.piece==="n")idea="Le cavalier s’installe en "+bestMove.to+", une case active d’où il contrôle plusieurs cases centrales et peut préparer une attaque.";
+   else if(bestMove.piece==="b")idea="Le fou se place en "+bestMove.to+" pour améliorer sa diagonale et exercer une pression à distance.";
+   else if(bestMove.piece==="r")idea="La tour rejoint "+bestMove.to+" pour mieux contrôler la colonne et soutenir tes pièces.";
+   else if(bestMove.piece==="q")idea="La dame rejoint "+bestMove.to+" pour coordonner l’attaque et soutenir les menaces sur le roi adverse.";
+   else if(bestMove.piece==="p")idea="Cette poussée en "+bestMove.to+" gagne de l’espace et ouvre des lignes à tes pièces.";
+   else idea="Ce déplacement en "+bestMove.to+" améliore la coordination de tes pièces et renforce la sécurité de ton roi.";
+  }
  }
- let body="Stockfish préfère "+best+". ";
- if(detail.bestMate)body+="Cette suite force le mat : la priorité était de créer ou d’empêcher cette menace.";
- else if(detail.bestCheck)body+="L’idée est de jouer l’échec d’abord : tu obliges le roi adverse à réagir et tu gardes l’initiative.";
- else if(detail.bestCapture&&!detail.playedCapture)body+="Tu pouvais exploiter une pièce vulnérable par une prise. Vérifie les pièces attaquées et le nombre de défenseurs.";
- else if(detail.playedCapture)body+="La prise choisie ne règle pas le problème de la position. Avant de prendre, vérifie ce que ton adversaire pourra gagner ou attaquer ensuite.";
- else if(line)body+="La suite proposée est "+line+". Elle maintient mieux la pression et évite la dégradation de ta position.";
- else body+="Ton coup laisse une ressource plus forte à l’adversaire. Compare les cases contrôlées et les pièces protégées après les deux options.";
- if(loss!==null)body+=" L’écart est d’environ "+(loss/100).toFixed(1)+" pion(s) pour ton camp.";
- return {title:detail.label||"À corriger",body,tip:"Vérifie les échecs, les prises et les menaces avant de valider ton coup."};
+ if(!idea)idea="Ce coup améliore ta position et évite la perte de matériel ou d’activité que provoquerait une autre décision.";
+ const played=detail.played||"ton coup";
+ let body;
+ if(loss<15){
+  body=detail.bestUci===detail.playedUci?"Tu as trouvé le meilleur coup. "+idea:"Ton coup "+played+" reste jouable, mais le meilleur choix était "+(detail.best||"le coup indiqué")+". "+idea;
+ }else{
+  body="Le meilleur coup était "+(detail.best||"le coup indiqué")+". "+idea+" Ton coup "+played+" laisse cette possibilité à l’adversaire.";
+ }
+ return {title:loss<=0.01?"Coup parfait":loss<15?"Meilleur coup":detail.label||"À corriger",body,tip:"Les cases encadrées montrent la pièce à déplacer et sa destination."};
 }
 function currentDetail(){
  if(freeBoard)return null;
@@ -70,13 +84,15 @@ function render(){
  const legalMoves=freeBoard&&freeSelected?freeBoard.moves({square:freeSelected,verbose:true}):[];
  const legalTargets=new Map(legalMoves.map(m=>[m.to,m.captured?"capture":"move"]));
  const moveDetail=!freeBoard&&index>0?(active?.analysis?.positionDetails?.[index-1]||null):null;
- const moveBadge=moveDetail?(()=>{const symbol=moveDetail.bestUci===moveDetail.playedUci?"★":({good:"✓",inaccuracy:"?!",mistake:"?",blunder:"??"}[moveDetail.kind]||"✓");const label=moveDetail.bestUci===moveDetail.playedUci?"Meilleur coup":moveDetail.label||"Bon coup";return {symbol,label,kind:moveDetail.bestUci===moveDetail.playedUci?"best":moveDetail.kind,square:moveDetail.playedUci?.slice(2,4)};})():null;
+ const moveBadge=moveDetail?(()=>{const symbol=moveDetail.bestUci===moveDetail.playedUci?"★":({perfect:"✓",best:"★",brilliant:"!!",good:"✓",inaccuracy:"?!",mistake:"?",blunder:"??"}[moveDetail.kind]||"✓");const label=moveDetail.label||"Bon coup";return {symbol,label,kind:moveDetail.kind,square:moveDetail.playedUci?.slice(2,4)};})():null;
  const ranks=orientation==="white"?[8,7,6,5,4,3,2,1]:[1,2,3,4,5,6,7,8];
  const files=orientation==="white"?["a","b","c","d","e","f","g","h"]:["h","g","f","e","d","c","b","a"];
  let cells="";
  ranks.forEach((rank,r)=>files.forEach((file,f)=>{
   const square=file+rank,p=board.get(square),light=((rank-1+(file.charCodeAt(0)-97))%2)===1;
   const classes=["replay-square",light?"light":"dark"];
+  if(!freeBoard&&detail&&variationIndex===0&&detail.bestUci?.slice(0,2)===square)classes.push("coach-highlight-from");
+  if(!freeBoard&&detail&&variationIndex===0&&detail.bestUci?.slice(2,4)===square)classes.push("coach-highlight");
   if(pvSquares.includes(square))classes.push("pv-highlight");
   if(manualHighlights.has(square))classes.push("manual-highlight");
   if(selectedSquares.includes(square))classes.push("free-selected");
@@ -93,24 +109,24 @@ function render(){
   arrows='<svg class="board-arrows '+(orientation==="black"?"rotated":"")+'" viewBox="0 0 100 100" aria-hidden="true"><defs><marker id="bestArrow" markerWidth="5" markerHeight="5" refX="3.5" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 z" fill="#9be564"/></marker><marker id="playedArrow" markerWidth="5" markerHeight="5" refX="3.5" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 z" fill="#ffb45e"/></marker></defs>'+arrow(best?.slice(0,2),best?.slice(2,4),"#9be564")+(played&&played!==best?arrow(played.slice(0,2),played.slice(2,4),"#ffb45e",true):"")+'</svg>';
  }
  const last=index?moves[index-1]:null;
- const label=freeBoard?"Mode libre · "+freeBoard.turn().toUpperCase()+" joue":(variationIndex?"Variante Stockfish · "+variationIndex+" coup(s) joué(s)":(detail&&detail.played?"Coup "+(Math.floor(detail.ply/2)+1)+" · "+detail.played:(last?("Après le coup "+Math.ceil(index/2)+" · "+last.san):"Position initiale")));
+ const label=freeBoard?"Mode libre · "+freeBoard.turn().toUpperCase()+" joue":(variationIndex?"Variante · "+variationIndex+" coup(s) joué(s)":(detail&&detail.played?"Coup "+(Math.floor(detail.ply/2)+1)+" · "+detail.played:(last?("Après le coup "+Math.ceil(index/2)+" · "+last.san):"Position initiale")));
  const cp=freeBoard?null:(variationIndex?null:(detail?.evalWhite??active?.analysis?.positions?.[Math.min(index,(active?.analysis?.positions?.length||1)-1)]??null));
  const clamped=Math.max(-1000,Math.min(1000,Number(cp)||0));
  const whitePct=100/(1+Math.exp(-0.00368208*clamped));
  const evalMarkup='<div class="eval-column"><strong class="eval-score">'+formatEval(cp)+'</strong><div class="eval-bar-track" aria-label="Évaluation du point de vue des Blancs"><div class="eval-black" style="height:'+(100-whitePct)+'%"></div><div class="eval-white" style="height:'+whitePct+'%"></div></div><small class="eval-perspective">Blancs</small></div>';
  const pvLine=(detail?.pvSan||[]).map((san,i)=>'<button type="button" class="pv-step '+(variationIndex===i+1?"active":"")+'" data-pv-step="'+(i+1)+'">'+esc(san)+'</button>').join("");
- const pvPanel=detail&&pvLine?'<div class="pv-panel"><div class="pv-heading"><strong>Meilleure variante Stockfish</strong><span>Touche un coup pour suivre la ligne</span></div><div class="pv-moves"><button type="button" class="pv-step '+(variationIndex===0?"active":"")+'" data-pv-step="0">Départ</button>'+pvLine+'</div></div>':"";
+ const pvPanel=detail&&pvLine?'<div class="pv-panel"><div class="pv-heading"><strong>Suite possible</strong><span>Touche un coup pour suivre la ligne</span></div><div class="pv-moves"><button type="button" class="pv-step '+(variationIndex===0?"active":"")+'" data-pv-step="0">Départ</button>'+pvLine+'</div></div>':"";
  const coachDetail=!freeBoard?(index>0?(active?.analysis?.positionDetails?.[index-1]||null):(active?.analysis?.positionDetails?.[0]||null)):null;
  const coach=coachMessage(coachDetail);
- const coachPanel='<aside class="review-side"><section class="coach-card"><div class="coach-avatar" aria-hidden="true">♞</div><div class="coach-identity"><strong>Ton coach</strong><span>Analyse Stockfish · en direct</span></div><div class="coach-message"><strong>'+esc(freeBoard?"À toi de jouer !":coach.title)+'</strong><p>'+esc(freeBoard?"Sélectionne une pièce : les cases où elle peut aller sont indiquées par des points. Les commandes sous l’échiquier permettent d’annuler et de rejouer tes coups.":coach.body)+'</p><small>'+esc(freeBoard?"Les coordonnées des cases restent visibles pour t'aider à lire les positions.":coach.tip)+'</small></div></section></aside>';
+ const coachPanel='<aside class="review-side"><section class="coach-card"><div class="coach-avatar" aria-hidden="true">♞</div><div class="coach-identity"><strong>Ton coach</strong><span>Conseil sur ton coup</span></div><div class="coach-message"><strong>'+esc(freeBoard?"À toi de jouer !":coach.title)+'</strong><p>'+esc(freeBoard?"Sélectionne une pièce : les cases où elle peut aller sont indiquées par des points. Les commandes sous l’échiquier permettent d’annuler et de rejouer tes coups.":coach.body)+'</p><small>'+esc(freeBoard?"Les coordonnées des cases restent visibles pour t'aider à lire les positions.":coach.tip)+'</small></div></section></aside>';
  const controls=freeBoard
   ?'<div class="replay-controls free-navigation"><button class="icon-nav" data-free-reset="1" title="Revenir à la position de départ" aria-label="Revenir à la position de départ">|◀</button><button class="icon-nav" data-free-undo="1" '+(freeBoard.history().length?"":"disabled")+' title="Annuler le coup" aria-label="Annuler le coup">◀</button><button class="icon-nav" data-free-redo="1" '+(freeRedo.length?"":"disabled")+' title="Rejouer le coup annulé" aria-label="Rejouer le coup annulé">▶</button><button class="icon-nav" data-free-exit="1" title="Quitter la partie libre" aria-label="Quitter la partie libre">✕</button></div>'
   :'<div class="replay-controls"><button class="icon-nav" data-review-start="1" title="Revenir au début" aria-label="Revenir au début">|◀</button><button class="icon-nav" data-review-step="-1" '+(index===0?"disabled":"")+' title="Coup précédent" aria-label="Coup précédent">◀</button><button class="icon-nav" data-review-step="1" '+(index===moves.length?"disabled":"")+' title="Coup suivant" aria-label="Coup suivant">▶</button><button class="icon-nav" data-review-end="1" title="Aller à la fin" aria-label="Aller à la fin">▶|</button></div>';
  const analysisPanel=detail&&!freeBoard?'<div class="board-analysis-note"><strong>Meilleur coup : '+esc(detail.best||"—")+'</strong><span>Coup joué : '+esc(detail.played||"—")+(detail.loss>0?' · perte estimée '+Math.round(detail.loss)+' centipions':' · choix proche du meilleur coup')+'</span><small><i class="arrow-key best-key"></i> Meilleur coup <i class="arrow-key played-key"></i> Coup joué</small></div>':"";
  const clearButton=manualHighlights.size?'<button type="button" class="clear-highlights" data-clear-highlights="1">Effacer les surbrillances</button>':'';
- $("game-replay-area").innerHTML='<article class="surface replay-card" id="active-game-review"><div class="surface-heading"><div><p class="eyebrow">RELECTURE DE TA PARTIE</p><h3>Rejouer et comprendre</h3><p class="muted">'+esc(active.date||"Partie")+' · '+esc(active.white||"Blancs")+' – '+esc(active.black||"Noirs")+'</p></div><span class="engine-badge '+(analysisMoves.length?"ready":"")+'">'+(analysisMoves.length?"Analyse disponible":"Relecture")+'</span></div><p class="review-position-label">'+esc(label)+' · '+(freeBoard?"position libre":index+' / '+moves.length+' demi-coups')+'</p><div class="replay-layout"><div class="replay-board-column"><div class="replay-board-wrap">'+evalMarkup+'<div class="replay-board">'+cells+arrows+'</div></div>'+controls+clearButton+analysisPanel+pvPanel+'</div>'+coachPanel+'</div><div class="review-action"><div><strong>Analyse de tes coups</strong><p>'+(analysisMoves.length?"Le coach suit maintenant automatiquement le coup affiché sur l’échiquier.":"Stockfish va comparer tes décisions et proposer le meilleur coup dans chaque position.")+'</p></div><button type="button" class="primary-button" id="review-run-analysis">'+(analysisMoves.length?"Relancer l’analyse Stockfish":"Analyser avec Stockfish")+'</button></div></article>';
+ $("game-replay-area").innerHTML='<article class="surface replay-card" id="active-game-review"><div class="surface-heading"><div><p class="eyebrow">RELECTURE DE TA PARTIE</p><h3>Rejouer et comprendre</h3><p class="muted">'+esc(active.date||"Partie")+' · '+esc(active.white||"Blancs")+' – '+esc(active.black||"Noirs")+'</p></div><span class="engine-badge '+(analysisMoves.length?"ready":"")+'">'+(analysisMoves.length?"Analyse disponible":"Relecture")+'</span></div><p class="review-position-label">'+esc(label)+' · '+(freeBoard?"position libre":index+' / '+moves.length+' demi-coups')+'</p><div class="replay-layout"><div class="replay-board-column"><div class="replay-board-wrap">'+evalMarkup+'<div class="replay-board">'+cells+arrows+'</div></div>'+controls+clearButton+analysisPanel+pvPanel+'</div>'+coachPanel+'</div></article>';
  $("game-replay-area").querySelectorAll(".chess-piece-image").forEach(img=>img.addEventListener("error",()=>{const fallback=document.createElement("span");fallback.className="piece";fallback.textContent=img.alt;img.replaceWith(fallback);},{once:true}));
- $("review-run-analysis").addEventListener("click",()=>{const id=active.id;const select=$("analysis-game-select");if(select)select.value=String(id);if(window.CoachAnalysis?.analyze)window.CoachAnalysis.analyze(id);else window.dispatchEvent(new CustomEvent("coach:analyze-game",{detail:{gameId:id}}));});
+
 }
 function open(id){
  document.querySelector('[data-tab="training"]')?.click();
