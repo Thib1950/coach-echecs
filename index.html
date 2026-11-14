@@ -4,85 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101a2a">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Coach Échecs">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="Coach d'échecs personnel : parties Chess.com, progression et entraînement.">
-  <title>Mon Coach d'échecs</title>
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <div class="app-shell">
-    <header class="topbar">
-      <a class="brand" href="#" aria-label="Accueil">
-        <span class="brand-mark">♞</span><span>MON COACH<span class="brand-sub">D'ÉCHECS</span></span>
-      </a>
-      <div class="profile-chip"><span class="online-dot"></span><span id="account-name">gone_1950</span><span class="chip-label">CHESS.COM</span></div>
-    </header>
-    <main>
-      <section class="welcome">
-        <div>
-          <p class="eyebrow">TON ESPACE D'ENTRAÎNEMENT</p>
-          <h1>On progresse <em>un coup à la fois.</em></h1>
-          <p class="welcome-copy">Tes parties, tes habitudes et tes prochains objectifs réunis au même endroit.</p>
-        </div>
-        <div class="welcome-piece" aria-hidden="true">♞</div>
-      </section>
-      <nav class="tabs" aria-label="Navigation principale">
-        <button class="tab active" data-tab="dashboard">Vue d'ensemble</button>
-        <button class="tab" data-tab="games">Mes parties</button>
-        <button class="tab" data-tab="training">Entraînement</button>
-        <button class="tab" data-tab="openings">Ouvertures</button>
-        <button class="tab" data-tab="progress">Progression</button>
-      </nav>
-
-      <section class="panel active" id="panel-dashboard">
-        <div class="section-heading dashboard-heading"><div><p class="eyebrow">TABLEAU DE BORD</p><h2>Salut, gone_1950 👋</h2></div></div>
-        <div class="dashboard-toolbar"><span class="sync-state" id="sync-state">Version publiée · 14/11/2026 · v30</span><div class="dashboard-toolbar-actions"><div class="button-row"><button class="primary-button" id="sync-button">Récupérer mes parties</button><label class="secondary-button file-button">Importer un PGN<input type="file" id="pgn-file" accept=".pgn,text/plain" hidden></label></div></div></div>
-        <p class="small muted dashboard-sync-message" id="sync-message" aria-live="polite"></p>
-        <div class="stats-grid dashboard-stats"><article class="stat-card"><span class="stat-label">PARTIES IMPORTÉES</span><strong id="stat-games">0</strong></article><article class="stat-card stat-win"><span class="stat-label">VICTOIRES</span><strong id="stat-wins">0</strong></article><article class="stat-card stat-loss"><span class="stat-label">DÉFAITES</span><strong id="stat-losses">0</strong></article></div>
-        <article class="surface recent-surface"><div class="surface-heading"><div><p class="eyebrow">ACTIVITÉ RÉCENTE</p><h3>Dernières parties</h3></div><button class="text-button" data-goto="games">Tout voir →</button></div><div id="recent-games" class="empty-state">Tes parties apparaîtront ici après l'import.</div><p id="accuracy-queue-status" class="small muted" aria-live="polite"></p></article>
-      </section>
-
-      <section class="panel" id="panel-games">
-        <div class="section-heading"><div><p class="eyebrow">HISTORIQUE CHESS.COM</p><h2>Mes parties</h2><p class="muted">Retrouve tes parties importées et leurs informations.</p></div><button class="primary-button" id="sync-button-games">Synchroniser</button></div>
-        <div class="filter-row"><input id="game-search" type="search" placeholder="Rechercher un adversaire…" aria-label="Rechercher un adversaire"><select id="result-filter" aria-label="Filtrer par résultat"><option value="all">Tous les résultats</option><option value="win">Victoires</option><option value="draw">Nulles</option><option value="loss">Défaites</option></select></div>
-        <div id="games-list" class="games-list"><div class="empty-state">Aucune partie pour le moment. Lance une synchronisation ou importe un PGN.</div></div>
-      </section>
-
-      <section class="panel" id="panel-training">
-        <div class="section-heading"><div><p class="eyebrow">TRAVAIL PERSONNALISÉ</p><h2>Ton entraînement</h2><p class="muted">Un premier diagnostic calculé à partir de tes parties importées.</p></div></div>
-        <div class="training-kpis">
-          <article class="training-kpi kpi-review"><span>À REVOIR</span><strong id="training-losses">0</strong><small>Parties perdues</small></article>
-          <article class="training-kpi kpi-accuracy"><span>ÉVOLUTION DE TA PRÉCISION</span><div class="training-trend-main"><strong id="training-accuracy">—</strong><strong id="training-accuracy-delta" class="trend-neutral">—</strong></div><small id="training-accuracy-count">Analyse 25 parties pour établir ta référence.</small></article>
-        </div>
-        <article class="surface recent-surface"><div class="surface-heading"><div><p class="eyebrow">À ÉTUDIER EN PREMIER</p><h3>Parties à revoir</h3></div></div><div id="training-games" class="games-list"><div class="empty-state">Tes défaites récentes apparaîtront ici.</div></div></article>
-        <article class="surface engine-surface">
-          <div class="surface-heading"><div><p class="eyebrow">ANALYSE MOTEUR</p><h3>Analyser une de tes parties</h3></div><span class="engine-badge" id="engine-status">Moteur non chargé</span></div>
-          <p>Choisis une partie importée. Stockfish examinera les coups et signalera les imprécisions, erreurs et gaffes. L'analyse est effectuée sur ton appareil.</p>
-          <div class="analysis-controls">
-            <select id="analysis-game-select" aria-label="Choisir une partie à analyser"></select>
-            <button class="primary-button" id="analyse-game-button">Analyser cette partie</button>
-          </div>
-          <div id="analysis-progress" class="analysis-progress" hidden><div class="analysis-progress-track"><div id="analysis-progress-fill"></div></div><p id="analysis-progress-label">Préparation du moteur…</p></div>
-          <div id="game-replay-area"></div><div id="analysis-results"><div class="empty-state compact">Sélectionne une partie puis lance l'analyse pour obtenir des commentaires sur tes coups.</div></div><div id="lesson-area"></div>
-        </article>
-      </section>
-
-      <section class="panel" id="panel-openings">
-        <div class="section-heading"><div><p class="eyebrow">RÉPERTOIRE PERSONNEL</p><h2>Mes ouvertures</h2><p class="muted">Tes habitudes d'ouverture avec les Blancs et les Noirs.</p></div></div>
-        <article class="surface openings-surface"><div class="surface-heading"><div><p class="eyebrow">TON RÉPERTOIRE</p><h3>Les ouvertures que tu joues réellement</h3></div><select id="opening-color-filter" aria-label="Filtrer les ouvertures"><option value="all">Blancs et Noirs</option><option value="white">Avec les Blancs</option><option value="black">Avec les Noirs</option></select></div><p class="opening-intro">Je regroupe tes parties par ouverture principale, puis par variante. Choisis une ouverture pour voir les lignes à travailler.</p><div id="opening-table" class="opening-table"><div class="empty-state">Les ouvertures apparaîtront après le chargement de tes parties.</div></div></article><div id="opening-detail"></div>
-      </section>
-
-      <section class="panel" id="panel-progress">
-        <div class="section-heading"><div><p class="eyebrow">BILAN ET OBJECTIFS</p><h2>Ta progression</h2><p class="muted">Un suivi basé sur tes résultats réels, pas sur des impressions.</p></div></div>
-        <div class="content-grid"><article class="surface"><h3>Résultats des parties importées</h3><div id="result-bars" class="bar-list"><p class="muted">Les statistiques apparaîtront après l'import.</p></div></article><article class="surface"><h3>Prochaine étape</h3><p>Analyser chaque partie avec un moteur d'échecs, mesurer les pertes d'évaluation et classer les erreurs par thème.</p><span class="status-pill">Analyse Stockfish : prochaine étape</span></article></div>
+  <meta name="apple-mobile-web-app-capable" c        <div class="progress-kpis"><article class="training-kpi"><span>TAUX DE VICTOIRE</span><strong id="progress-win-rate">—</strong><small id="progress-win-rate-detail">Sur les parties décidées</small></article><article class="training-kpi"><span>PLUS HAUT ELO BATTU</span><strong id="progress-best-win-elo">—</strong><small id="progress-best-win-opponent">Adversaire le mieux classé battu</small></article></div><div class="content-grid"><article class="surface"><h3>Résultats des parties importées</h3><div id="result-bars" class="bar-list"><p class="muted">Les statistiques apparaîtront après l’import.</p></div></article></div>
       </section>
     </main>
-    <footer><span>MON COACH D'ÉCHECS</span><span>Version publiée · 14/11/2026 · v30</span></footer>
+    <footer><span>MON COACH D'ÉCHECS</span><span>Version publiée · 14/11/2026 · v31</span></footer>
   </div>
   <script src="app.js"></script>
   <script type="module" src="review.js"></script>
