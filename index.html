@@ -66,14 +66,26 @@
       </section>
 
       <section class="panel" id="panel-training">
-        <div class="section-heading"><div><p class="eyebrow">TRAVAIL PERSONNALISÉ</p><h2>Entraînement</h2><p class="muted">Des exercices construits à partir de tes propres parties.</p></div></div>
-        <div class="training-intro"><div class="big-knight">♘</div><div><h3>On va travailler sur tes vraies positions.</h3><p>Après l'import de tes parties, cette section accueillera des exercices tactiques et des situations où tu as manqué une occasion. L'analyse moteur Stockfish sera ajoutée dans la prochaine étape.</p></div></div>
-        <div class="stats-grid three"><article class="stat-card"><span class="stat-label">TACTIQUE</span><strong>À venir</strong><span class="stat-note">Fourchettes, clouages, mats</span></article><article class="stat-card"><span class="stat-label">CALCUL</span><strong>À venir</strong><span class="stat-note">Chercher les coups candidats</span></article><article class="stat-card"><span class="stat-label">FINALES</span><strong>À venir</strong><span class="stat-note">Convertir les avantages</span></article></div>
+        <div class="section-heading"><div><p class="eyebrow">TRAVAIL PERSONNALISÉ</p><h2>Ton entraînement</h2><p class="muted">Un premier diagnostic calculé à partir de tes parties importées.</p></div></div>
+        <div class="stats-grid three">
+          <article class="stat-card"><span class="stat-label">PARTIES À REVOIR</span><strong id="training-losses">0</strong><span class="stat-note">Défaites récentes</span></article>
+          <article class="stat-card"><span class="stat-label">CADENCE À TRAVAILLER</span><strong id="training-weak-time">—</strong><span class="stat-note">Selon tes résultats</span></article>
+          <article class="stat-card"><span class="stat-label">OUVERTURES JOUÉES</span><strong id="training-openings">0</strong><span class="stat-note">Variantes identifiées</span></article>
+        </div>
+        <article class="surface"><p class="eyebrow">TON PLAN DE TRAVAIL</p><h3>Priorités calculées sur tes résultats</h3><div id="training-plan" class="recommendation-list"><div class="empty-state">Importe tes parties pour obtenir ton premier bilan.</div></div></article>
+        <article class="surface recent-surface"><div class="surface-heading"><div><p class="eyebrow">À ÉTUDIER EN PREMIER</p><h3>Parties à revoir</h3></div></div><div id="training-games" class="games-list"><div class="empty-state">Tes défaites récentes apparaîtront ici.</div></div></article>
+        <p class="small muted">Ce premier bilan utilise les résultats et les ouvertures enregistrés dans tes parties. L'analyse des coups, les exercices tactiques issus de positions réelles et les finales nécessitent encore l'intégration du moteur Stockfish : ils ne sont pas simulés ici.</p>
       </section>
 
       <section class="panel" id="panel-openings">
-        <div class="section-heading"><div><p class="eyebrow">RÉPERTOIRE PERSONNEL</p><h2>Ouvertures</h2><p class="muted">Identifier les ouvertures que tu joues avec les Blancs et les Noirs.</p></div></div>
-        <article class="surface"><h3>Ton répertoire sera construit à partir de tes parties.</h3><p>On regardera les premiers coups, les positions obtenues et les résultats. Ensuite, je pourrai te proposer un répertoire cohérent avec ton style et ton niveau, sans te faire apprendre des dizaines de variantes inutiles.</p><div class="empty-state compact" id="opening-state">Importe tes parties pour commencer.</div></article>
+        <div class="section-heading"><div><p class="eyebrow">RÉPERTOIRE PERSONNEL</p><h2>Mes ouvertures</h2><p class="muted">Fréquence et résultats de tes ouvertures, calculés sur tes parties.</p></div></div>
+        <div class="stats-grid three">
+          <article class="stat-card"><span class="stat-label">OUVERTURES IDENTIFIÉES</span><strong id="opening-count">0</strong><span class="stat-note">Noms ou codes ECO reconnus</span></article>
+          <article class="stat-card"><span class="stat-label">OUVERTURE LA PLUS JOUÉE</span><strong id="opening-main" class="stat-word">—</strong><span class="stat-note" id="opening-main-count">En attente des données</span></article>
+          <article class="stat-card"><span class="stat-label">MEILLEUR SCORE</span><strong id="opening-best">—</strong><span class="stat-note" id="opening-best-name">Minimum 3 parties</span></article>
+        </div>
+        <article class="surface"><div class="surface-heading"><div><p class="eyebrow">STATISTIQUES PAR OUVERTURE</p><h3>Ton répertoire en pratique</h3></div><select id="opening-color-filter" aria-label="Filtrer les ouvertures"><option value="all">Blancs et Noirs</option><option value="white">Avec les Blancs</option><option value="black">Avec les Noirs</option></select></div><div id="opening-table" class="opening-table"><div class="empty-state">Les statistiques apparaîtront après l'import.</div></div></article>
+        <p class="small muted">Les statistiques d'ouverture reposent sur les noms et codes ECO présents dans les données PGN Chess.com. L'étude des variantes et la proposition de coups nécessiteront une analyse plus approfondie.</p>
       </section>
 
       <section class="panel" id="panel-progress">
