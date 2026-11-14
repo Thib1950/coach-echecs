@@ -14,7 +14,7 @@ function sideOf(g){return (g.white||"").toLowerCase()===USER?"white":"black";}
 function sanLine(uci){const c=new Chess(),out=[];for(let i=0;i<uci.length;i++){const m=c.moves({verbose:true}).find(x=>x.from+x.to+(x.promotion||"")===uci[i]);if(!m)break;c.move({from:m.from,to:m.to,promotion:m.promotion});out.push((i%2===0?(Math.floor(i/2)+1)+". ":"")+m.san);}return out.join(" ");}
 async function loadDatabase(){
  const cached=localStorage.getItem("coach-echecs-openings-db-v1");
- if(cached){try{database=JSON.parse(cached);return;}catch{}}
+ if(cached){try{database=JSON.parse(cached).map(item=>({...item,display:frenchName(item.name),family:familyName(item.name)}));return;}catch{}}
  try{
   const letters=["a","b","c","d","e"];
   const files=await Promise.all(letters.map(async letter=>{const res=await fetch("https://raw.githubusercontent.com/lichess-org/chess-openings/master/"+letter+".tsv");if(!res.ok)throw new Error("Base des ouvertures indisponible");return await res.text();}));
