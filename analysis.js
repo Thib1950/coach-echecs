@@ -199,7 +199,7 @@ async function analyseSelectedGame(gameIdOverride){
       const beforeFen=fen.fen(),playedUci=uciMove(move);
       const bestSan=sanForUci(beforeFen,beforeEval.bestmove);
       const moverSign=move.color==="w"?1:-1;
-      const loss=Math.max(0,moverSign*(beforeEval.scoreWhite-afterEval.scoreWhite));
+      const loss=beforeEval.bestmove===playedUci?0:Math.max(0,moverSign*(beforeEval.scoreWhite-afterEval.scoreWhite));
       const category=classify(loss);
       report.moves.push({
         fen:beforeFen,bestUci:beforeEval.bestmove,pvUci:beforeEval.pv,
