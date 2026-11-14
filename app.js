@@ -77,7 +77,7 @@ function renderTraining(){
     const weakOpening=openings.filter(x=>x.count>=3).sort((a,b)=>a.score-b.score)[0];
     if(weakOpening)tips.push("Ouverture à revoir : "+weakOpening.name+". Ton score est de "+Math.round(weakOpening.score)+" % en "+weakOpening.count+" parties. Compare les premiers coups de tes parties gagnées et perdues.");
     if(!losses.length)tips.push("Tu n'as pas de défaite importée : on pourra travailler les ouvertures et les positions critiques dès que l'analyse moteur sera disponible.");
-    tips.push("Prochaine analyse : Stockfish examinera les coups pour repérer les gaffes, les occasions tactiques manquées et les erreurs de conversion. Ce calcul moteur n'est pas encore activé dans cette version.");
+    tips.push("Analyse moteur disponible : lance Stockfish depuis une partie pour comparer chacun de tes coups au meilleur choix et afficher les positions à corriger.");
   }
   $("training-plan").innerHTML=tips.map((t,i)=>'<div class="recommendation-item"><span class="recommendation-number">0'+(i+1)+'</span><p>'+escapeHtml(t)+'</p></div>').join("");
   $("training-games").innerHTML=losses.length?losses.slice(0,5).map(g=>'<div class="game-row"><div><div class="game-opponent">Défaite contre '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="game-meta">'+formatDate(g.date)+' · '+escapeHtml(g.timeControl||"Cadence inconnue")+(openingName(g)?" · "+escapeHtml(openingName(g)):"")+'</div></div>'+'<button type="button" class="lesson-launch" data-open-game="'+escapeHtml(g.id)+'">Analyser cette partie dans le coach →</button>'+'</div>').join(""):'<div class="empty-state">Aucune défaite enregistrée dans les parties importées.</div>';
