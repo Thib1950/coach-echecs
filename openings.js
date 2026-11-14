@@ -48,7 +48,7 @@ function buildGroups(){
 function render(){
  buildGroups();const filter=$("opening-color-filter")?.value||"all";
  const rows=groups.map(g=>{const games=g.games.filter(x=>filter==="all"||sideOf(x)===filter);return {...g,shown:games.length,shownGames:games,w:games.filter(x=>outcome(x)==="win").length,d:games.filter(x=>outcome(x)==="draw").length,l:games.filter(x=>outcome(x)==="loss").length,white:games.filter(x=>sideOf(x)==="white").length,black:games.filter(x=>sideOf(x)==="black").length};}).filter(g=>g.shown).sort((a,b)=>b.shown-a.shown);
- $("opening-table").innerHTML=rows.length?rows.map(g=>'<div class="opening-family-row"><div class="opening-family-main"><strong>'+esc(g.family)+'</strong><small>Blancs : '+g.white+' partie(s) · Noirs : '+g.black+' partie(s)</small></div><div class="opening-family-stats"><b>'+g.shown+' partie(s)</b><small>V / N / D : '+g.w+' / '+g.d+' / '+g.l+'</small></div><button type="button" class="opening-family-button" data-opening-family="'+esc(g.key)+'">Étudier →</button></div>').join(""):'<div class="empty-state">'+(dbError?"Les noms d'ouvertures n'ont pas pu être chargés. Vérifie ta connexion puis rouvre cet onglet.":"Aucune ouverture reconnue dans tes parties importées.")+'</div>';
+ $("opening-table").innerHTML=rows.length?rows.map(g=>{const decided=g.w+g.d+g.l,points=(g.w+g.d/2)/(decided||1),status=decided<3?"À confirmer":points<.45?"À travailler":points>=.6?"Bon repère":"À consolider";const statusClass=decided>=3&&points<.45?"needs-work":decided>=3&&points>=.6?"solid":"neutral";return '<div class="opening-family-row"><div class="opening-family-main"><strong>'+esc(g.family)+'</strong><small>Blancs : '+g.white+' partie(s) · Noirs : '+g.black+' partie(s)</small></div><div class="opening-family-stats"><b>'+g.shown+' partie(s)</b><small>V / N / D : '+g.w+' / '+g.d+' / '+g.l+'</small><span class="opening-status '+statusClass+'">'+status+'</span></div><button type="button" class="opening-family-button" data-opening-family="'+esc(g.key)+'">Étudier →</button></div>';}).join(""):'<div class="empty-state">'+(dbError?"Les noms d'ouvertures n'ont pas pu être chargés. Vérifie ta connexion puis rouvre cet onglet.":"Aucune ouverture reconnue dans tes parties importées.")+'</div>';
  if(currentKey){const g=groups.find(x=>x.key===currentKey);if(g)renderDetail(g);}
 }
 function renderDetail(g){
@@ -67,7 +67,7 @@ function startExercise(group,variant){
  const filter=$("opening-color-filter").value;
  const whiteCount=variant.games.filter(g=>sideOf(g)==="white").length,blackCount=variant.games.length-whiteCount;
  const side=filter==="white"?"w":filter==="black"?"b":(whiteCount>=blackCount?"w":"b");
- let board=new Chess(),ply=0,selected=null,feedback="Choisis une pièce puis une case. Je te guide dans la ligne d’ouverture que tu as jouée.";
+ let board=new Chess(),ply=0,selected=null,feedback="À toi : retrouve le prochain coup de développement de cette ouverture. Pense au contrôle du centre et à la sortie de tes pièces.";
  const applyOpponentMoves=()=>{while(ply<line.length&&board.turn()!==side){const u=line[ply++];try{board.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]});}catch{break;}}};
  applyOpponentMoves();
  const root=$("opening-practice");
