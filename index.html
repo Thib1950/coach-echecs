@@ -40,7 +40,7 @@
       </nav>
 
       <section class="panel active" id="panel-dashboard">
-        <div class="section-heading"><div><p class="eyebrow">TABLEAU DE BORD</p><h2>Salut, joueur 👋</h2></div><span class="sync-state" id="sync-state">Données non synchronisées</span></div>
+        <div class="section-heading"><div><p class="eyebrow">TABLEAU DE BORD</p><h2>Salut, Golden Under 1950 👋</h2></div><span class="sync-state" id="sync-state">Données non synchronisées</span></div>
         <div class="stats-grid">
           <article class="stat-card"><span class="stat-label">PARTIES IMPORTÉES</span><strong id="stat-games">0</strong><span class="stat-note">Dans ton espace personnel</span></article>
           <article class="stat-card"><span class="stat-label">VICTOIRES</span><strong id="stat-wins">0</strong><span class="stat-note" id="stat-winrate">En attente de tes parties</span></article>
@@ -71,12 +71,10 @@
 
       <section class="panel" id="panel-training">
         <div class="section-heading"><div><p class="eyebrow">TRAVAIL PERSONNALISÉ</p><h2>Ton entraînement</h2><p class="muted">Un premier diagnostic calculé à partir de tes parties importées.</p></div></div>
-        <div class="stats-grid three">
-          <article class="stat-card"><span class="stat-label">PARTIES À REVOIR</span><strong id="training-losses">0</strong><span class="stat-note">Défaites récentes</span></article>
-          <article class="stat-card"><span class="stat-label">CADENCE À TRAVAILLER</span><strong id="training-weak-time">—</strong><span class="stat-note">Selon tes résultats</span></article>
-          <article class="stat-card"><span class="stat-label">OUVERTURES JOUÉES</span><strong id="training-openings">0</strong><span class="stat-note">Variantes identifiées</span></article><article class="stat-card"><span class="stat-label">PRÉCISION ESTIMÉE</span><strong id="training-accuracy">—</strong><span class="stat-note" id="training-accuracy-count">Parties analysées</span></article>
+        <div class="training-kpis">
+          <article class="training-kpi kpi-review"><span>À REVOIR</span><strong id="training-losses">0</strong><small>Parties perdues</small></article>
+          <article class="training-kpi kpi-accuracy"><span>PRÉCISION MOYENNE</span><strong id="training-accuracy">—</strong><small id="training-accuracy-count">Parties entièrement analysées</small></article>
         </div>
-        <article class="surface"><p class="eyebrow">TON PLAN DE TRAVAIL</p><h3>Priorités calculées sur tes résultats</h3><div id="training-plan" class="recommendation-list"><div class="empty-state">Importe tes parties pour obtenir ton premier bilan.</div></div></article>
         <article class="surface recent-surface"><div class="surface-heading"><div><p class="eyebrow">À ÉTUDIER EN PREMIER</p><h3>Parties à revoir</h3></div></div><div id="training-games" class="games-list"><div class="empty-state">Tes défaites récentes apparaîtront ici.</div></div></article>
         <article class="surface engine-surface">
           <div class="surface-heading"><div><p class="eyebrow">ANALYSE MOTEUR</p><h3>Analyser une de tes parties</h3></div><span class="engine-badge" id="engine-status">Moteur non chargé</span></div>
@@ -107,7 +105,7 @@
         <div class="content-grid"><article class="surface"><h3>Résultats des parties importées</h3><div id="result-bars" class="bar-list"><p class="muted">Les statistiques apparaîtront après l'import.</p></div></article><article class="surface"><h3>Prochaine étape</h3><p>Analyser chaque partie avec un moteur d'échecs, mesurer les pertes d'évaluation et classer les erreurs par thème.</p><span class="status-pill">Analyse Stockfish : prochaine étape</span></article></div>
       </section>
     </main>
-    <footer><span>MON COACH D'ÉCHECS</span><span>Version initiale · Tes données restent dans ce navigateur</span></footer>
+    <footer><span>MON COACH D'ÉCHECS</span><span>Version de développement · 14/11/2026 · 19:40</span></footer>
   </div>
   <script src="app.js"></script>
   <script type="module" src="review.js"></script>
