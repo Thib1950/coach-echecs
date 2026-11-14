@@ -1,6 +1,7 @@
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
 const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let active=null,moves=[],index=0,analysisMoves=[],activeAnalysisMove=null,variationIndex=0;
+let ecoOpeningPromise=null;
 let freeBoard=null,freeStartFen="",freeSelected=null,freeRedo=[];
 const manualHighlights=new Set();
 const glyph={wk:"♔",wq:"♕",wr:"♖",wb:"♗",wn:"♘",wp:"♙",bk:"♚",bq:"♛",br:"♜",bb:"♝",bn:"♞",bp:"♟"};
@@ -15,10 +16,17 @@ function formatEval(cp){
  cp=Number(cp);if(Math.abs(cp)>=9990)return cp>0?"+M":"−M";
  const value=(cp/100).toFixed(1);return cp>0?"+"+value:value.replace("-","−");
 }
+function frenchOpeningName(name){return String(name||"").replace(/French Defense/gi,"Défense française").replace(/Sicilian Defense/gi,"Défense sicilienne").replace(/Caro-Kann Defense/gi,"Défense Caro-Kann").replace(/King's Indian Defense/gi,"Défense est-indienne").replace(/Queen's Gambit/gi,"Gambit dame").replace(/King's Gambit/gi,"Gambit roi").replace(/Ruy Lopez/gi,"Partie espagnole").replace(/Italian Game/gi,"Partie italienne").replace(/Advanced Variation/gi,"Variante d’avance").replace(/Variation/gi,"Variante").replace(/Defense/gi,"Défense").replace(/Opening/gi,"Ouverture");}
+function ensureOpeningName(game){
+ if(!game||String(game.opening||"").trim()||game.displayOpening||!game.eco)return;
+ if(game._openingLookup)return;game._openingLookup=true;
+ if(!ecoOpeningPromise)ecoOpeningPromise=Promise.all(["a","b","c","d","e"].map(async letter=>{const response=await fetch("https://raw.githubusercontent.com/lichess-org/chess-openings/master/"+letter+".tsv");if(!response.ok)throw new Error("Base ECO indisponible");return response.text();})).then(files=>{const map={};for(const file of files)for(const line of file.split(/\r?\n/)){const [eco,name]=line.split("\t");if(eco&&name&&eco.toLowerCase()!=="eco"&&!map[eco])map[eco]=name;}return map;});
+ ecoOpeningPromise.then(map=>{const name=map[String(game.eco).toUpperCase()];if(name){game.displayOpening=frenchOpeningName(name);if(active===game)render();}}).catch(()=>{});
+}
 function coachMessage(detail){
  if(!detail||detail.loss===null||detail.loss===undefined)return {title:"Position en cours",body:"Je vérifie les possibilités de cette position. Le meilleur coup et son idée apparaîtront ici.",tip:""};
  const userSide=((active?.white||"").toLowerCase()==="gone_1950"?"w":"b");
- if(detail.color!==userSide)return {title:"Coup adverse",body:"Voici la réponse jouée par ton adversaire. Avance d’un coup pour voir ton choix et son évaluation.",tip:""};
+ if(detail.color!==userSide){const opening=active?.opening||active?.displayOpening;return {title:opening?"Ligne : "+opening:"Coup adverse",body:opening?"Ton adversaire a choisi "+(detail.played||"un coup")+" dans cette ouverture. La position est prise en compte pour préparer ta réponse au coup suivant.":"Voici la réponse jouée par ton adversaire. Avance d’un coup pour voir le choix adapté à cette position.",tip:""};}
  const loss=Math.max(0,Number(detail.loss)||0);
  const bestBoard=new Chess(detail.fen);
  const bestMove=bestBoard.moves({verbose:true}).find(m=>m.from+m.to+(m.promotion||"")===detail.bestUci);
@@ -62,6 +70,7 @@ function coachMessage(detail){
    }
   }catch{}
  }
+ if(detail.kind==="book"&&(active?.opening||active?.displayOpening)){const opening=active.opening||active.displayOpening;return {title:"Réponse dans l’ouverture",body:"Dans la "+opening+", après le choix adverse, Stockfish recommande "+(detail.best||"ce coup")+". "+idea,tip:"Le conseil tient compte de la ligne réellement jouée et de la position obtenue."};}
  let body;
  if(loss<15){
   body=detail.bestUci===detail.playedUci?"Tu as trouvé le meilleur coup. "+idea:"Ton coup "+played+" reste jouable, mais le meilleur choix était "+(detail.best||"le coup indiqué")+". "+idea;
@@ -126,13 +135,14 @@ function render(){
   arrows='<svg class="board-arrows '+(orientation==="black"?"rotated":"")+'" viewBox="0 0 100 100" aria-hidden="true"><defs><marker id="bestArrow" markerWidth="3.6" markerHeight="3.6" refX="2.8" refY="1.8" orient="auto"><path d="M0,0 L3.6,1.8 L0,3.6 z" fill="'+bestColor+'"/></marker><marker id="playedArrow" markerWidth="3.6" markerHeight="3.6" refX="2.8" refY="1.8" orient="auto"><path d="M0,0 L3.6,1.8 L0,3.6 z" fill="'+playedColor+'"/></marker></defs>'+arrow(best?.slice(0,2),best?.slice(2,4),bestColor)+(played&&played!==best?arrow(played.slice(0,2),played.slice(2,4),playedColor,true):"")+'</svg>';
  }
  const last=index?moves[index-1]:null;
- const openingLabel=(active?.opening||"").trim()||(active?.eco?"Ouverture · ECO "+active.eco:"Ouverture non identifiée");
+ ensureOpeningName(active);
+ const openingLabel=(active?.opening||active?.displayOpening||"").trim()||(active?.eco?"Ouverture en cours d’identification":"Ouverture non identifiée");
  const label=freeBoard?"Mode libre · "+freeBoard.turn().toUpperCase()+" joue":openingLabel;
  const cp=freeBoard?null:(variationIndex?null:(detail?.evalWhite??active?.analysis?.positions?.[Math.min(index,(active?.analysis?.positions?.length||1)-1)]??null));
  const clamped=Math.max(-1000,Math.min(1000,Number(cp)||0));
  const whitePct=100/(1+Math.exp(-0.00368208*clamped));
  const evalMarkup='<div class="eval-column"><strong class="eval-score">'+formatEval(cp)+'</strong><div class="eval-bar-track" aria-label="Évaluation du point de vue des Blancs"><div class="eval-black" style="height:'+(100-whitePct)+'%"></div><div class="eval-white" style="height:'+whitePct+'%"></div></div><small class="eval-perspective">Blancs</small></div>';
- const pvLine=(detail?.pvSan||[]).map((san,i)=>'<button type="button" class="pv-step '+(variationIndex===i+1?"active":"")+'" data-pv-step="'+(i+1)+'">'+esc(san)+'</button>').join("");
+ const pvLine=(detail?.pvSan||[]).map((san,i)=>'<button type="button" class="pv-step '+(variationIndex===i+1?"active":"")+'" data-pv-step="'+(i+1)+'"><span class="pv-index">'+(i+1)+'</span><strong>'+esc(san)+'</strong></button>').join("");
  const pvPanel=detail&&pvLine?'<div class="pv-panel"><div class="pv-heading"><strong>Suite possible</strong><span>Touche un coup pour suivre la ligne</span></div><div class="pv-moves"><button type="button" class="pv-step '+(variationIndex===0?"active":"")+'" data-pv-step="0">Départ</button>'+pvLine+'</div></div>':"";
  const coachDetail=!freeBoard&&index>0?(activeAnalysisMove||(active?.analysis?.positionDetails?.[index-1]||null)):null;
  const coach=coachMessage(coachDetail);
@@ -140,7 +150,6 @@ function render(){
  const controls=freeBoard
   ?'<div class="replay-controls free-navigation"><button class="icon-nav" data-free-reset="1" title="Revenir à la position de départ" aria-label="Revenir à la position de départ">|◀</button><button class="icon-nav" data-free-undo="1" '+(freeBoard.history().length?"":"disabled")+' title="Annuler le coup" aria-label="Annuler le coup">◀</button><button class="icon-nav" data-free-redo="1" '+(freeRedo.length?"":"disabled")+' title="Rejouer le coup annulé" aria-label="Rejouer le coup annulé">▶</button><button class="icon-nav" data-free-exit="1" title="Quitter la partie libre" aria-label="Quitter la partie libre">✕</button></div>'
   :'<div class="replay-controls"><button class="icon-nav" data-review-start="1" title="Revenir au début" aria-label="Revenir au début">|◀</button><button class="icon-nav" data-review-step="-1" '+(index===0?"disabled":"")+' title="Coup précédent" aria-label="Coup précédent">◀</button><button class="icon-nav" data-review-step="1" '+(index===moves.length?"disabled":"")+' title="Coup suivant" aria-label="Coup suivant">▶</button><button class="icon-nav" data-review-end="1" title="Aller à la fin" aria-label="Aller à la fin">▶|</button></div>';
- const analysisPanel=detail&&!freeBoard?'<div class="board-analysis-note"><strong>Meilleur coup : '+esc(detail.best||"—")+'</strong><span>Coup joué : '+esc(detail.played||"—")+(detail.loss>0?' · perte estimée '+Math.round(detail.loss)+' centipions':' · choix proche du meilleur coup')+'</span><small><i class="arrow-key best-key"></i> Meilleur coup <i class="arrow-key played-key"></i> Coup joué</small></div>':"";
  const clearButton=manualHighlights.size?'<button type="button" class="clear-highlights" data-clear-highlights="1">Effacer les surbrillances</button>':'';
  $("game-replay-area").innerHTML='<article class="surface replay-card" id="active-game-review"><div class="surface-heading"><div><p class="eyebrow">RELECTURE DE TA PARTIE</p><h3>Rejouer et comprendre</h3><p class="muted">'+esc(active.date||"Partie")+' · '+esc(active.white||"Blancs")+' – '+esc(active.black||"Noirs")+'</p></div><span class="engine-badge '+(analysisMoves.length?"ready":"")+'">'+(analysisMoves.length?"Analyse disponible":"Relecture")+'</span></div><p class="review-position-label">'+esc(label)+' · '+(freeBoard?"position libre":index+' / '+moves.length+' demi-coups')+'</p><div class="replay-layout"><div class="replay-board-column"><div class="replay-board-wrap">'+evalMarkup+'<div class="replay-board">'+cells+arrows+'</div></div>'+controls+clearButton+analysisPanel+pvPanel+'</div>'+coachPanel+'</div></article>';
  $("game-replay-area").querySelectorAll(".chess-piece-image").forEach(img=>img.addEventListener("error",()=>{const fallback=document.createElement("span");fallback.className="piece";fallback.textContent=img.alt;img.replaceWith(fallback);},{once:true}));
