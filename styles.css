@@ -101,3 +101,57 @@ html,body,button,a,input,select{touch-action:manipulation}
  .pv-heading{align-items:flex-start;flex-direction:column}
  .pv-step{padding:7px 8px}
 }
+
+
+/* Relecture coach : échiquier à gauche, commentaires à droite */
+.replay-layout{display:grid!important;grid-template-columns:minmax(0,1.55fr) minmax(250px,.9fr);align-items:start;gap:22px;margin-top:12px}
+.replay-board-column{min-width:0}
+.replay-board-wrap{width:100%;max-width:none;margin:0;align-items:stretch;gap:12px}
+.replay-board-wrap .replay-board{width:auto;max-width:none;flex:1;min-width:0}
+.eval-column{width:48px;flex-basis:48px;gap:8px}
+.eval-score{font-size:18px;letter-spacing:-.4px}
+.eval-bar-track{width:25px;min-height:220px;border-radius:5px}
+.eval-perspective{font-size:9px;letter-spacing:.4px;text-transform:uppercase}
+.replay-controls{width:100%;max-width:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0 14px}
+.replay-controls .icon-nav{width:100%;height:54px;min-width:0;border-radius:12px;background:linear-gradient(180deg,#263a51,#1a2b40);border:1px solid #506783;font-size:21px;box-shadow:0 3px 0 #0c1725;transition:transform .12s ease,background .12s ease}
+.replay-controls .icon-nav:active{transform:translateY(2px);box-shadow:0 1px 0 #0c1725}
+.review-side{min-width:0;display:flex;flex-direction:column;gap:13px}
+.coach-card{position:relative;display:grid;grid-template-columns:46px 1fr;column-gap:11px;align-items:center;padding:16px;border:1px solid #3b526c;border-radius:15px;background:linear-gradient(145deg,#1c3047,#142237);min-height:180px}
+.coach-avatar{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#d3f18b,#86b94c);color:#172316;font-size:29px;box-shadow:0 0 0 4px #344b3d}
+.coach-identity{display:grid;gap:4px}
+.coach-identity strong{font:800 15px Manrope;color:#f1f6fc}
+.coach-identity span{font-size:10px;color:#a9bbcf}
+.coach-message{grid-column:1/-1;margin-top:17px;padding:14px;border-radius:11px;background:#0f1b2b;border:1px solid #2b4058}
+.coach-message>strong{font:700 14px Manrope;color:#c9ed85}
+.coach-message p{font-size:13px;line-height:1.65;color:#e2ebf5;margin:8px 0}
+.coach-message small{display:block;padding-top:9px;border-top:1px solid #2b4058;font-size:11px;line-height:1.55;color:#a9bbcf}
+.free-play-controls{display:grid;gap:8px}
+.free-play-controls .secondary-button{width:100%;min-height:43px;font-size:12px}
+.free-play-button{border-color:#66864b;background:#293f2c;color:#d9f4a5}
+.free-play-controls button:disabled{opacity:.4}
+.replay-square.free-selected{box-shadow:inset 0 0 0 4px #ffd166;filter:brightness(1.15)}
+.board-analysis-note{margin-top:13px}
+.pv-panel{margin-top:10px}
+.clear-highlights{margin-top:8px}
+.review-action{margin-top:16px}
+@media(max-width:760px){
+ .replay-layout{grid-template-columns:minmax(0,1.2fr) minmax(220px,.9fr);gap:14px}
+ .eval-column{width:40px;flex-basis:40px}
+ .eval-score{font-size:16px}
+ .eval-bar-track{min-height:180px}
+ .replay-controls{gap:6px}
+ .replay-controls .icon-nav{height:49px;font-size:18px}
+ .coach-card{padding:12px;min-height:0}
+ .coach-message{margin-top:13px;padding:11px}
+ .coach-message p{font-size:12px}
+}
+@media(max-width:650px){
+ .replay-layout{display:flex!important;flex-direction:column;align-items:stretch;gap:13px}
+ .replay-board-column,.review-side{width:100%}
+ .replay-board-wrap{width:100%;max-width:520px;margin:0}
+ .replay-board-wrap .replay-board{width:auto;max-width:none}
+ .replay-controls{width:100%;max-width:520px;margin:12px 0}
+ .replay-controls .icon-nav{height:52px}
+ .review-side{display:grid;grid-template-columns:1fr}
+ .coach-card{min-height:0}
+}
