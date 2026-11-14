@@ -18,7 +18,7 @@ function formatEval(cp){
 function coachMessage(detail){
  if(!detail||detail.loss===null||detail.loss===undefined)return {title:"Position en cours",body:"Je vérifie les possibilités de cette position. Le meilleur coup et son idée apparaîtront ici.",tip:""};
  const userSide=((active?.white||"").toLowerCase()==="gone_1950"?"w":"b");
- if(detail.color!==userSide)return {title:"À toi de jouer",body:"À toi de choisir : vérifie les échecs, les prises et les menaces avant de jouer.",tip:""};
+ if(detail.color!==userSide)return {title:"Coup adverse",body:"Voici la réponse jouée par ton adversaire. Avance d’un coup pour voir ton choix et son évaluation.",tip:""};
  const loss=Math.max(0,Number(detail.loss)||0);
  const bestBoard=new Chess(detail.fen);
  const bestMove=bestBoard.moves({verbose:true}).find(m=>m.from+m.to+(m.promotion||"")===detail.bestUci);
@@ -58,8 +58,8 @@ function coachMessage(detail){
  return {title:loss<=0.01?"Coup parfait":loss<15?"Meilleur coup":detail.label||"À corriger",body,tip:"Les cases encadrées montrent la pièce à déplacer et sa destination."};
 }
 function currentDetail(){
- if(freeBoard)return null;
- return active?.analysis?.positionDetails?.[index]||activeAnalysisMove||null;
+ if(freeBoard||index===0)return null;
+ return activeAnalysisMove||active?.analysis?.positionDetails?.[index-1]||null;
 }
 function render(){
  if(!active)return;
@@ -84,7 +84,7 @@ function render(){
  const legalMoves=freeBoard&&freeSelected?freeBoard.moves({square:freeSelected,verbose:true}):[];
  const legalTargets=new Map(legalMoves.map(m=>[m.to,m.captured?"capture":"move"]));
  const moveDetail=!freeBoard?(activeAnalysisMove||(index>0?(active?.analysis?.positionDetails?.[index-1]||null):null)):null;
- const moveBadge=moveDetail?(()=>{const symbol=({brilliant:"!!",great:"!",best:"★",excellent:"👍",good:"✓",book:"▤",inaccuracy:"?!",mistake:"?",miss:"×",blunder:"??"}[moveDetail.kind]||"✓");const label=moveDetail.label||"Bon coup";return {symbol,label,kind:moveDetail.kind,square:moveDetail.playedUci?.slice(2,4)};})():null;
+ const moveBadge=moveDetail?(()=>{const symbol=({brilliant:"✦",great:"!",best:"★",excellent:"◆",good:"✓",book:"▤",inaccuracy:"?!",mistake:"?",miss:"×",blunder:"‼"}[moveDetail.kind]||"·");const label=moveDetail.label||"Bon coup";return {symbol,label,kind:moveDetail.kind,square:moveDetail.playedUci?.slice(2,4)};})():null;
  const ranks=orientation==="white"?[8,7,6,5,4,3,2,1]:[1,2,3,4,5,6,7,8];
  const files=orientation==="white"?["a","b","c","d","e","f","g","h"]:["h","g","f","e","d","c","b","a"];
  let cells="";
@@ -122,7 +122,7 @@ function render(){
  const pvPanel=detail&&pvLine?'<div class="pv-panel"><div class="pv-heading"><strong>Suite possible</strong><span>Touche un coup pour suivre la ligne</span></div><div class="pv-moves"><button type="button" class="pv-step '+(variationIndex===0?"active":"")+'" data-pv-step="0">Départ</button>'+pvLine+'</div></div>':"";
  const coachDetail=!freeBoard?(activeAnalysisMove||(index>0?(active?.analysis?.positionDetails?.[index-1]||null):(active?.analysis?.positionDetails?.[0]||null))):null;
  const coach=coachMessage(coachDetail);
- const coachPanel='<aside class="review-side"><section class="coach-card"><div class="coach-avatar" aria-hidden="true">♞</div><div class="coach-identity"><strong>Ton coach</strong><span>Conseil sur ton coup</span></div><div class="coach-message"><strong>'+esc(freeBoard?"À toi de jouer !":coach.title)+'</strong><p>'+esc(freeBoard?"Sélectionne une pièce : les cases où elle peut aller sont indiquées par des points. Les commandes sous l’échiquier permettent d’annuler et de rejouer tes coups.":coach.body)+'</p><small>'+esc(freeBoard?"Les coordonnées des cases restent visibles pour t'aider à lire les positions.":coach.tip)+'</small></div></section></aside>';
+ const coachPanel='<aside class="review-side"><section class="coach-card"><div class="coach-avatar" aria-hidden="true">♞</div><div class="coach-identity"><strong>Ton coach</strong><span>'+(freeBoard?"Partie libre":"Analyse du coup")+'</span></div><div class="coach-message"><strong>'+esc(freeBoard?"À toi de jouer":(coachDetail?coach.title:"Choisis un coup"))+'</strong>'+(freeBoard?"":(coachDetail?'<p>'+esc(coach.body)+'</p>':'<p>Avance dans la partie pour afficher l’explication du coup et la meilleure idée.</p>'))+'</div></section></aside>';
  const controls=freeBoard
   ?'<div class="replay-controls free-navigation"><button class="icon-nav" data-free-reset="1" title="Revenir à la position de départ" aria-label="Revenir à la position de départ">|◀</button><button class="icon-nav" data-free-undo="1" '+(freeBoard.history().length?"":"disabled")+' title="Annuler le coup" aria-label="Annuler le coup">◀</button><button class="icon-nav" data-free-redo="1" '+(freeRedo.length?"":"disabled")+' title="Rejouer le coup annulé" aria-label="Rejouer le coup annulé">▶</button><button class="icon-nav" data-free-exit="1" title="Quitter la partie libre" aria-label="Quitter la partie libre">✕</button></div>'
   :'<div class="replay-controls"><button class="icon-nav" data-review-start="1" title="Revenir au début" aria-label="Revenir au début">|◀</button><button class="icon-nav" data-review-step="-1" '+(index===0?"disabled":"")+' title="Coup précédent" aria-label="Coup précédent">◀</button><button class="icon-nav" data-review-step="1" '+(index===moves.length?"disabled":"")+' title="Coup suivant" aria-label="Coup suivant">▶</button><button class="icon-nav" data-review-end="1" title="Aller à la fin" aria-label="Aller à la fin">▶|</button></div>';
