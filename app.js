@@ -2,6 +2,7 @@ const USERNAME = "gone_1950";
 const STORAGE_KEY = "coach-echecs-v1";
 let games = [];
 const $ = (id) => document.getElementById(id);
+const avatarCache=new Map(),avatarPending=new Set();
 
 function readStoredGames(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]")}catch{return []}}
 function saveGames(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(games))}catch(e){setMessage("Le stockage du navigateur est plein. Exporte tes parties en PGN pour les conserver.")}}
@@ -44,26 +45,50 @@ function gameAccuracy(g){
  return Math.round((weighted+harmonic)/2);
 }
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function avatarMarkup(player){const name=String(player||"Adversaire");return '<span class="player-avatar" data-player-avatar="'+escapeHtml(name)+'" aria-hidden="true">♟</span>';}
+async function hydratePlayerAvatars(){
+ const nodes=[...document.querySelectorAll("[data-player-avatar]")],names=[...new Set(nodes.map(n=>n.dataset.playerAvatar).filter(Boolean))];
+ for(const name of names){
+  if(avatarCache.has(name)){applyAvatar(name,avatarCache.get(name));continue;}
+  if(avatarPending.has(name))continue;
+  avatarPending.add(name);
+  try{
+   const response=await fetch("https://api.chess.com/pub/player/"+encodeURIComponent(name.toLowerCase()),{headers:{"Accept":"application/json"}});
+   if(!response.ok)throw new Error("Profil indisponible");
+   const profile=await response.json(),url=typeof profile.avatar==="string"&&/^https:\/\//i.test(profile.avatar)?profile.avatar:null;
+   avatarCache.set(name,url);applyAvatar(name,url);
+  }catch{avatarCache.set(name,null);}
+  finally{avatarPending.delete(name);}
+ }
+}
+function applyAvatar(name,url){
+ if(!url)return;
+ document.querySelectorAll("[data-player-avatar]").forEach(node=>{
+  if(node.dataset.playerAvatar!==name||node.querySelector("img"))return;
+  const img=document.createElement("img");img.src=url;img.alt="";img.loading="lazy";img.onerror=()=>img.remove();
+  node.textContent="";node.appendChild(img);
+ });
+}
 function groupOpenings(source){const groups=new Map();source.forEach(g=>{const name=openingName(g);if(!name)return;const key=name; if(!groups.has(key))groups.set(key,{name,games:[],wins:0,draws:0,losses:0,white:0,black:0});const x=groups.get(key);x.games.push(g);const o=outcome(g);if(o==="win")x.wins++;if(o==="draw")x.draws++;if(o==="loss")x.losses++;if(userColor(g)==="white")x.white++;if(userColor(g)==="black")x.black++});return [...groups.values()].map(x=>({...x,count:x.games.length,score:(x.wins+x.draws/2)/(x.wins+x.draws+x.losses||1)*100})).sort((a,b)=>b.count-a.count)}
 function render(){
   const wins=games.filter(g=>outcome(g)==="win").length, draws=games.filter(g=>outcome(g)==="draw").length, losses=games.filter(g=>outcome(g)==="loss").length;
   $("stat-games").textContent=games.length;$("stat-wins").textContent=wins;$("stat-losses").textContent=losses;
-  $("sync-state").textContent="Version publiée · 14/11/2026 · v31";
+  $("sync-state").textContent="Version publiée · 14/11/2026 · v32";
   const sorted=[...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   $("recent-games").innerHTML=sorted.length?sorted.slice(0,4).map(recentGameHtml).join(""):'<div class="empty-state">Tes parties apparaîtront ici après l’import.</div>';
-  renderGames(sorted);renderBars(wins,draws,losses);renderOpenings();renderTraining();renderProgressStats(wins,draws,losses);
+  renderGames(sorted);renderBars(wins,draws,losses);renderOpenings();renderTraining();renderProgressStats(wins,draws,losses);hydratePlayerAvatars();
 }
 function gameHtml(g){
  const o=outcome(g),accuracy=gameAccuracy(g);
  const accuracyText=!g.analysis?.partial&&accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
  const side=userColor(g),opponentElo=side==="white"?g.blackElo:side==="black"?g.whiteElo:"";
- return '<div class="game-row game-row-expanded"><div class="game-row-info"><div class="game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="game-meta">'+formatDate(g.date)+'</div></div><div class="game-list-accuracy"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="analysis-icon-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir et analyser cette partie" title="Revoir et analyser cette partie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg></button></div>';
+ return '<div class="game-row game-row-expanded"><div class="game-row-info"><div class="player-line">'+avatarMarkup(opponent(g))+'<div class="game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+'</div></div><div class="game-meta">'+formatDate(g.date)+'</div></div><div class="game-list-accuracy"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="analysis-icon-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir et analyser cette partie" title="Revoir et analyser cette partie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg></button></div>';
 }
 function recentGameHtml(g){
  const side=userColor(g),opponentElo=side==="white"?g.blackElo:side==="black"?g.whiteElo:"";
  const accuracy=gameAccuracy(g);
  const accuracyText=!g.analysis?.partial&&accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
- return '<div class="recent-game-row"><div class="recent-game-main"><div class="recent-game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="recent-game-meta">'+formatDate(g.date)+'</div></div><div class="recent-game-elo">'+(opponentElo?escapeHtml(opponentElo):"—")+'<small>ELO</small></div><div class="recent-game-precision"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><button type="button" class="recent-review-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir cette partie">↗</button></div>';
+ return '<div class="recent-game-row"><div class="recent-game-main"><div class="player-line">'+avatarMarkup(opponent(g))+'<div class="recent-game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+'</div></div><div class="recent-game-meta">'+formatDate(g.date)+'</div></div><div class="recent-game-elo">'+(opponentElo?escapeHtml(opponentElo):"—")+'<small>ELO</small></div><div class="recent-game-precision"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><button type="button" class="recent-review-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir cette partie">↗</button></div>';
 }
 function renderGames(sorted){const q=($("game-search").value||"").toLowerCase(),f=$("result-filter").value;const filtered=sorted.filter(g=>(opponent(g)||"").toLowerCase().includes(q)&&(f==="all"||outcome(g)===f));$("games-list").innerHTML=filtered.length?filtered.map(gameHtml).join(""):'<div class="empty-state">Aucune partie ne correspond à ce filtre.</div>'}
 function renderBars(w,d,l){const n=w+d+l;if(!n){$("result-bars").innerHTML='<p class="muted">Les statistiques apparaîtront après l’import.</p>';return}const rows=[["Victoires",w],["Nulles",d],["Défaites",l]];$("result-bars").innerHTML=rows.filter(([,v])=>v>0).map(([label,v])=>'<div class="bar-item"><span>'+label+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(v/n*100)+'%"></div></div><strong>'+v+' · '+Math.round(v/n*100)+' %</strong></div>').join("")}
@@ -111,9 +136,9 @@ async function syncChessCom(){
     for(const url of urls){setMessage("Récupération de "+url.split("/").slice(-2).join("/")+"…");const res=await fetch(url,{headers:{"Accept":"application/json"}});if(!res.ok)continue;const data=await res.json();imported=imported.concat((data.games||[]).map(normalizeGame))}
     if(!imported.length)throw new Error("Aucune partie trouvée dans les trois dernières archives.");
     const byId=new Map(games.map(g=>[g.id,g]));imported.forEach(g=>byId.set(g.id,g));games=[...byId.values()].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-    saveGames();render();setMessage(imported.length+" parties récupérées ou actualisées. Les données sont conservées sur cet appareil.");$("sync-state").textContent="Version publiée · 14/11/2026 · v30";
+    saveGames();render();setMessage(imported.length+" parties récupérées ou actualisées. Les données sont conservées sur cet appareil.");$("sync-state").textContent="Version publiée · 14/11/2026 · v32";
   }catch(e){setMessage("La synchronisation automatique n'a pas abouti : "+e.message+". Tu peux importer un fichier PGN depuis Chess.com.")}
-  finally{buttons.forEach((b,i)=>{b.disabled=false;b.textContent=i?"Synchroniser":"Récupérer mes parties"})}
+  finally{buttons.forEach(b=>{b.disabled=false;b.textContent=b.id==="sync-button"?"Synchroniser les parties":"Synchroniser"})}
 }
 function importPgnFile(file){if(!file)return;const reader=new FileReader();reader.onload=()=>{const added=parsePgn(String(reader.result||""));if(!added.length){setMessage("Je n'ai pas reconnu de parties dans ce fichier PGN.");return}const byId=new Map(games.map(g=>[g.id,g]));added.forEach(g=>byId.set(g.id,g));games=[...byId.values()];saveGames();render();setMessage(added.length+" partie(s) importée(s) depuis le fichier PGN.")};reader.onerror=()=>setMessage("Impossible de lire ce fichier.");reader.readAsText(file)}
 let openingsModuleLoaded=false;
