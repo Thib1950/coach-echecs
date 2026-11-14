@@ -88,10 +88,15 @@ function renderResults(g, report){
   report.moves.forEach(m=>counts[m.kind]++);
   const issues=report.moves.filter(m=>m.kind!=="good");
   const ordered=[...report.moves].sort((a,b)=>a.ply-b.ply);
+  const rows=ordered.map(m=>{
+    const side=m.color==="w"?"Blancs":"Noirs";
+    const note=m.loss>0?"perte estimée "+Math.round(m.loss)+" centipions":"coup conforme au meilleur choix";
+    return '<button type="button" class="analysis-move analysis-move-button" data-analysis-ply="'+m.ply+'"><span class="analysis-move-main"><strong>'+esc(side)+' · '+esc(m.moveNo)+'. '+esc(m.played)+'</strong><small>Meilleur coup : <b>'+esc(m.best)+'</b> · '+esc(note)+'</small></span><span class="move-tag '+m.kind+'">'+m.label+'</span></button>';
+  }).join("");
   $("analysis-results").innerHTML=
     '<div class="analysis-summary"><div><strong>'+report.moves.length+'</strong><span>coups analysés</span></div><div><strong>'+counts.inaccuracy+'</strong><span>imprécisions</span></div><div><strong>'+counts.mistake+'</strong><span>erreurs</span></div><div><strong>'+counts.blunder+'</strong><span>gaffes</span></div></div>'+
-    '<p class="analysis-verdict">'+(issues.length?'Stockfish a trouvé '+issues.length+' coup(s) à revoir. Sélectionne une ligne pour afficher la position et les flèches sur l’échiquier.':'Aucune erreur importante détectée dans les coups examinés.')+'</p>'+
-    '<div class="analysis-moves">'+ordered.map(m=>'<button type="button" class="analysis-move analysis-move-button" data-analysis-ply="'+m.ply+'"><span class="analysis-move-main"><strong>'+esc(m.color==="w"?"Blancs":"Noirs")+' · '+esc(m.moveNo)+'. '+esc(m.played)+'</strong><small>Meilleur coup : <b>'+esc(m.best)+'</b> · '+(m.loss>0?'perte estimée '+Math.round(m.loss)+' centipions':'coup conforme au meilleur choix')+'</small></span><span class="move-tag '+m.kind+'">'+m.label+'</span></button>').join("")+'</div>'+
+    '<p class="analysis-verdict">'+(issues.length?"Stockfish a trouvé "+issues.length+" coup(s) à revoir. Sélectionne une ligne pour afficher la position et les flèches sur l’échiquier.":"Aucune erreur importante détectée dans les coups examinés.")+'</p>'+
+    '<div class="analysis-moves">'+rows+'</div>'+
     '<p class="small muted">Stockfish 19 Lite · '+report.depth+' positions examinées · '+report.covered+' demi-coups parcourus. Analyse indicative à profondeur limitée.</p>';
   window.CoachReview?.setAnalysis?.(report.moves,g);
 }
