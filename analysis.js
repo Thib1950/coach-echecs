@@ -63,7 +63,7 @@ function getEngine(){
   return engineReady;
 }
 
-function evalPosition(engine,fen){
+function evalPosition(engine,fen,movetime=650){
   return new Promise((resolve,reject)=>{
     let score=0,bestmove="",pv=[],depth=0,timer=null;
     const handler=event=>{
@@ -88,7 +88,7 @@ function evalPosition(engine,fen){
     };
     engine.addEventListener("message",handler);
     engine.postMessage("position fen "+fen);
-    engine.postMessage("go movetime 650");
+    engine.postMessage("go movetime "+movetime);
     timer=setTimeout(()=>{
       engine.removeEventListener("message",handler);
       reject(new Error("Stockfish n’a pas terminé l’analyse de cette position dans le délai prévu."));
@@ -114,9 +114,11 @@ function sanForUci(fen, uci){
 }
 function elapsedText(startedAt){const seconds=Math.floor((Date.now()-startedAt)/1000);return Math.floor(seconds/60)+":"+String(seconds%60).padStart(2,"0");}
 function classify(loss){
-  if (loss < 35) return {label:"Bon coup",kind:"good"};
-  if (loss < 90) return {label:"Imprécision",kind:"inaccuracy"};
-  if (loss < 180) return {label:"Erreur",kind:"mistake"};
+  if(loss<=0.01)return {label:"Coup parfait",kind:"perfect"};
+  if(loss<15)return {label:"Meilleur coup",kind:"best"};
+  if(loss<35)return {label:"Bon coup",kind:"good"};
+  if(loss<90)return {label:"Imprécision",kind:"inaccuracy"};
+  if(loss<180)return {label:"Erreur",kind:"mistake"};
   return {label:"Gaffe",kind:"blunder"};
 }
 function resultName(g){
@@ -140,13 +142,16 @@ function refreshGamePicker(){
   $("analyse-game-button").disabled = !games.length || busy;
 }
 function renderResults(g, report){
-  const counts={good:0,inaccuracy:0,mistake:0,blunder:0};
-  report.moves.forEach(m=>{if(m.loss!==null&&m.loss!==undefined)counts[m.kind]++;});
-  const issues=report.moves.filter(m=>m.loss!==null&&m.loss!==undefined&&m.kind!=="good");
-  $("analysis-results").innerHTML=
-    '<div class="analysis-summary"><div class="summary-metric inaccuracy"><span class="metric-icon">?!</span><strong>'+counts.inaccuracy+'</strong><span class="metric-label">Imprécisions</span></div><div class="summary-metric mistake"><span class="metric-icon">?</span><strong>'+counts.mistake+'</strong><span class="metric-label">Erreurs</span></div><div class="summary-metric blunder"><span class="metric-icon">??</span><strong>'+counts.blunder+'</strong><span class="metric-label">Gaffes</span></div><div class="summary-metric precision"><span class="metric-icon">%</span><strong>'+(accuracyFromMoves(report.moves)??"—")+(accuracyFromMoves(report.moves)===null?"":" %")+'</strong><span class="metric-label">Précision de tes coups</span></div></div>'+
-    '<p class="analysis-verdict">'+(issues.length?"Stockfish a trouvé "+issues.length+" coup(s) à revoir. Les symboles sur l’échiquier indiquent la qualité de chaque coup lorsque tu le fais défiler.":"Aucune erreur importante détectée dans les coups examinés.")+'</p>'+
-    '<p class="small muted">Stockfish 19 Lite · '+report.positions.length+' positions examinées · '+report.covered+' demi-coups parcourus. Analyse indicative à profondeur limitée.</p>';
+  const kinds=["brilliant","perfect","best","good","inaccuracy","mistake","blunder"];
+  const counts=Object.fromEntries(kinds.map(k=>[k,0]));
+  report.moves.forEach(m=>{if(m.loss!==null&&m.loss!==undefined&&counts[m.kind]!==undefined)counts[m.kind]++;});
+  const meta={brilliant:["!!","Brillants"],perfect:["✓","Parfaits"],best:["★","Meilleurs"],good:["✓","Bons coups"],inaccuracy:["?!","Imprécisions"],mistake:["?","Erreurs"],blunder:["??","Gaffes"]};
+  const tiles=kinds.map(k=>'<div class="summary-metric '+k+'"><span class="metric-icon">'+meta[k][0]+'</span><strong>'+counts[k]+'</strong><span class="metric-label">'+meta[k][1]+'</span></div>').join("");
+  const moveList=report.moves.filter(m=>m.loss!==null&&m.loss!==undefined).map(m=>{
+    const symbol=meta[m.kind]?.[0]||"✓",label=m.label||"Bon coup";
+    return '<button type="button" class="analysis-move analysis-move-button" data-analysis-ply="'+m.ply+'"><span class="analysis-move-main"><strong>'+Math.floor(m.ply/2+1)+'. '+esc(m.played||"—")+'</strong><small>Meilleur coup : <b>'+esc(m.best||"—")+'</b> · perte estimée '+Math.round(m.loss)+' cp</small></span><span class="move-tag '+m.kind+'">'+symbol+' '+esc(label)+'</span></button>';
+  }).join("");
+  $("analysis-results").innerHTML='<div class="analysis-summary">'+tiles+'</div><p class="analysis-verdict">'+(report.moves.length?"Voici le détail de tes décisions, coup par coup. Sélectionne une ligne pour afficher la position et comprendre l’idée.":"Aucun coup personnel n’a encore été évalué.")+'</p><div class="analysis-moves">'+moveList+'</div><p class="small muted">Précision estimée sur tes coups uniquement · analyse moteur indicative à profondeur limitée. Les coups brillants sont comptés uniquement lorsqu’un sacrifice décisif est reconnu.</p>';
   if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,g);
 }
 function accuracyFromMoves(moves){
@@ -163,17 +168,21 @@ function bestMoveFacts(fen,uci){
     return {bestCapture:!!m.captured,bestCheck:board.isCheck(),bestMate:board.isCheckmate()};
   }catch{return {bestCapture:false,bestCheck:false};}
 }
-async function analyseSelectedGame(gameIdOverride){
+async function analyseSelectedGame(gameIdOverride,options={}){
   if(busy)return;
+  const background=!!options.background,movetime=options.movetime||650;
   const games=window.CoachApp?.getGames?.()||[];
   const id=gameIdOverride===undefined?$("analysis-game-select").value:String(gameIdOverride);
   const game=games.find(g=>String(g.id)===id);
   if(!game){$("analysis-results").innerHTML='<div class="empty-state">Aucune partie sélectionnée.</div>';return;}
-  $("analysis-game-select").value=String(game.id);
-  if(!game.pgn){$("analysis-results").innerHTML='<div class="empty-state">Le PGN de cette partie n’est pas disponible. Réimporte la partie depuis Chess.com pour l’analyser.</div>';return;}
-  busy=true;const startedAt=Date.now();$("analyse-game-button").disabled=true;$("analyse-game-button").textContent="Analyse en cours…";
-  $("analysis-progress").hidden=false;$("analysis-progress-fill").style.width="0%";$("analysis-progress-label").textContent="Chargement du moteur Stockfish…";
-  $("analysis-results").innerHTML="";if(window.CoachReview?.open)window.CoachReview.open(game.id);
+  if(!background)$("analysis-game-select").value=String(game.id);
+  if(!game.pgn){if(!background)$("analysis-results").innerHTML='<div class="empty-state">Le PGN de cette partie n’est pas disponible. Réimporte la partie depuis Chess.com pour l’analyser.</div>';return;}
+  busy=true;const startedAt=Date.now();
+  if(!background){
+    $("analyse-game-button").disabled=true;$("analyse-game-button").textContent="Analyse en cours…";
+    $("analysis-progress").hidden=false;$("analysis-progress-fill").style.width="0%";$("analysis-progress-label").textContent="Chargement du moteur Stockfish…";
+    $("analysis-results").innerHTML="";if(window.CoachReview?.open)window.CoachReview.open(game.id);
+  }
   const report={moves:[],depth:0,covered:0,positions:[],positionDetails:[]};
   try{
     const parsed=new Chess();parsed.loadPgn(game.pgn);
@@ -181,7 +190,7 @@ async function analyseSelectedGame(gameIdOverride){
     if(!history.length)throw new Error("Aucun coup n'a pu être lu dans le PGN de cette partie.");
     const engine=await getEngine(),replay=new Chess();
     const userSide=(game.white||"").toLowerCase()===user?"w":"b";
-    let beforeEval=await evalPosition(engine,replay.fen());
+    let beforeEval=await evalPosition(engine,replay.fen(),movetime);
     report.positions.push(beforeEval.scoreWhite);
     for(let i=0;i<history.length;i++){
       const beforeFen=replay.fen(),move=history[i],playedUci=uciMove(move);
@@ -208,10 +217,12 @@ async function analyseSelectedGame(gameIdOverride){
       };
       // Publie la flèche du meilleur coup dès que Stockfish a terminé cette position.
       window.CoachApp.saveGames();
-      renderResults(game,report);
-      if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,game);
+      if(!background){
+        renderResults(game,report);
+        if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,game);
+      }
 
-      const afterEval=await evalPosition(engine,replay.fen());
+      const afterEval=await evalPosition(engine,replay.fen(),movetime);
       const moverSign=move.color==="w"?1:-1;
       const loss=beforeEval.bestmove===playedUci?0:Math.max(0,moverSign*(beforeEval.scoreWhite-afterEval.scoreWhite));
       Object.assign(detail,{afterEvalWhite:afterEval.scoreWhite,loss,...classify(loss)});
@@ -227,26 +238,43 @@ async function analyseSelectedGame(gameIdOverride){
       window.CoachApp.saveGames();
       renderResults(game,report);
       if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,game);
-      $("analysis-progress-fill").style.width=Math.round((i+1)/history.length*100)+"%";
-      $("analysis-progress-label").textContent="Stockfish analyse en arrière-plan · "+(i+1)+" / "+history.length+" demi-coups · "+elapsedText(startedAt);
+      if(!background){
+        $("analysis-progress-fill").style.width=Math.round((i+1)/history.length*100)+"%";
+        $("analysis-progress-label").textContent="Analyse en cours · "+(i+1)+" / "+history.length+" demi-coups · "+elapsedText(startedAt);
+      }
     }
     game.analysis={date:new Date().toISOString(),moves:report.moves,positions:report.positions,positionDetails:report.positionDetails,covered:report.covered,accuracy:accuracyFromMoves(report.moves),partial:false,depth:report.depth};
-    window.CoachApp.saveGames();renderResults(game,report);
-    if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,game);
-    $("analysis-progress-fill").style.width="100%";
-    $("analysis-progress-label").textContent="Analyse complète · "+elapsedText(startedAt)+" · Précision estimée : "+game.analysis.accuracy+" %.";
+    window.CoachApp.saveGames();
+    if(!background){
+      renderResults(game,report);
+      if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,game);
+      $("analysis-progress-fill").style.width="100%";
+      $("analysis-progress-label").textContent="Analyse complète · "+elapsedText(startedAt)+" · Précision estimée : "+game.analysis.accuracy+" %.";
+    }else{
+      window.CoachApp.refresh?.();
+      updateAccuracyQueueStatus();
+    }
   }catch(error){
     if(!report.covered){
       engineReady=null;if(worker){try{worker.terminate();}catch{}worker=null;}
-      $("analysis-results").innerHTML='<div class="empty-state">'+esc(error.message||"Une erreur est survenue pendant l’analyse.")+'</div>';
-      $("engine-status").textContent="Moteur indisponible";
+      if(!background){
+        $("analysis-results").innerHTML='<div class="empty-state">'+esc(error.message||"Une erreur est survenue pendant l’analyse.")+'</div>';
+        $("engine-status").textContent="Moteur indisponible";
+      }
     }else{
       game.analysis={date:new Date().toISOString(),moves:report.moves,positions:report.positions,positionDetails:report.positionDetails,covered:report.covered,accuracy:accuracyFromMoves(report.moves),partial:true};
-      window.CoachApp.saveGames();renderResults(game,report);
-      $("analysis-progress-label").textContent="Analyse interrompue après "+report.covered+" demi-coups. Les positions déjà calculées restent disponibles.";
+      window.CoachApp.saveGames();
+      if(!background){
+        renderResults(game,report);
+        $("analysis-progress-label").textContent="Analyse interrompue après "+report.covered+" demi-coups. Les positions déjà calculées restent disponibles.";
+      }
     }
   }finally{
-    busy=false;refreshGamePicker();$("analyse-game-button").disabled=false;$("analyse-game-button").textContent="Analyser cette partie";
+    busy=false;refreshGamePicker();
+    if(!background){
+      $("analyse-game-button").disabled=false;$("analyse-game-button").textContent="Analyser cette partie";
+      setTimeout(startAccuracyQueue,700);
+    }
   }
 }
 function openGameInCoach(gameId){
@@ -266,7 +294,45 @@ function openGameInCoach(gameId){
 }
 window.addEventListener("coach:analyze-game",event=>openGameInCoach(event.detail?.gameId));
 $("analyse-game-button").addEventListener("click",()=>analyseSelectedGame());
-window.addEventListener("coach:games-updated",refreshGamePicker);
+window.addEventListener("coach:games-updated",()=>{refreshGamePicker();updateAccuracyQueueStatus();setTimeout(startAccuracyQueue,400);});
 
 window.CoachAnalysis={openGame:openGameInCoach,analyze:gameId=>openGameInCoach(gameId)};
 refreshGamePicker();
+updateAccuracyQueueStatus();
+setTimeout(startAccuracyQueue,1800);
+
+let autoQueueRunning=false,autoQueueStopped=false;
+function updateAccuracyQueueStatus(){
+  const all=window.CoachApp?.getGames?.()||[];
+  const eligible=all.filter(g=>g.pgn);
+  const complete=eligible.filter(g=>!g.analysis?.partial&&Number.isFinite(Number(g.analysis?.accuracy))).length;
+  const pending=eligible.length-complete;
+  const node=$("accuracy-queue-status");
+  if(node)node.textContent=pending?"Calcul automatique de ta précision : "+complete+" / "+eligible.length+" parties terminées · "+pending+" restantes.":eligible.length?"Précision calculée pour toutes tes parties importées.":"";
+}
+async function startAccuracyQueue(){
+  if(autoQueueRunning||busy||document.hidden)return;
+  autoQueueRunning=true;autoQueueStopped=false;
+  try{
+    while(!document.hidden&&!autoQueueStopped){
+      const all=(window.CoachApp?.getGames?.()||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+      const next=all.find(g=>g.pgn&&(g.analysis?.partial||!Number.isFinite(Number(g.analysis?.accuracy))));
+      updateAccuracyQueueStatus();
+      if(!next)break;
+      await analyseSelectedGame(next.id,{background:true,movetime:120});
+      if(!next.analysis?.partial&&!Number.isFinite(Number(next.analysis?.accuracy))){autoQueueStopped=true;break;}
+      if(next.analysis?.partial){autoQueueStopped=true;break;}
+      await new Promise(resolve=>setTimeout(resolve,250));
+    }
+  }catch(error){console.warn("Calcul automatique de précision interrompu",error);}
+  finally{autoQueueRunning=false;updateAccuracyQueueStatus();}
+}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)setTimeout(startAccuracyQueue,500);});
+document.addEventListener("click",event=>{
+  const button=event.target.closest("[data-analysis-ply]");
+  if(!button)return;
+  const all=window.CoachApp?.getGames?.()||[];
+  const game=all.find(g=>g.analysis?.moves?.some(m=>String(m.ply)===button.dataset.analysisPly));
+  const move=game?.analysis?.moves?.find(m=>String(m.ply)===button.dataset.analysisPly);
+  if(move)window.CoachReview?.showAnalysisMove(move);
+});
