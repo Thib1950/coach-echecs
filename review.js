@@ -83,7 +83,7 @@ function render(){
  const selectedSquares=freeSelected?[freeSelected]:[];
  const legalMoves=freeBoard&&freeSelected?freeBoard.moves({square:freeSelected,verbose:true}):[];
  const legalTargets=new Map(legalMoves.map(m=>[m.to,m.captured?"capture":"move"]));
- const moveDetail=!freeBoard&&index>0?(active?.analysis?.positionDetails?.[index-1]||null):null;
+ const moveDetail=!freeBoard?(activeAnalysisMove||(index>0?(active?.analysis?.positionDetails?.[index-1]||null):null)):null;
  const moveBadge=moveDetail?(()=>{const symbol=moveDetail.bestUci===moveDetail.playedUci?"★":({perfect:"✓",best:"★",brilliant:"!!",good:"✓",inaccuracy:"?!",mistake:"?",blunder:"??"}[moveDetail.kind]||"✓");const label=moveDetail.label||"Bon coup";return {symbol,label,kind:moveDetail.kind,square:moveDetail.playedUci?.slice(2,4)};})():null;
  const ranks=orientation==="white"?[8,7,6,5,4,3,2,1]:[1,2,3,4,5,6,7,8];
  const files=orientation==="white"?["a","b","c","d","e","f","g","h"]:["h","g","f","e","d","c","b","a"];
@@ -116,7 +116,7 @@ function render(){
  const evalMarkup='<div class="eval-column"><strong class="eval-score">'+formatEval(cp)+'</strong><div class="eval-bar-track" aria-label="Évaluation du point de vue des Blancs"><div class="eval-black" style="height:'+(100-whitePct)+'%"></div><div class="eval-white" style="height:'+whitePct+'%"></div></div><small class="eval-perspective">Blancs</small></div>';
  const pvLine=(detail?.pvSan||[]).map((san,i)=>'<button type="button" class="pv-step '+(variationIndex===i+1?"active":"")+'" data-pv-step="'+(i+1)+'">'+esc(san)+'</button>').join("");
  const pvPanel=detail&&pvLine?'<div class="pv-panel"><div class="pv-heading"><strong>Suite possible</strong><span>Touche un coup pour suivre la ligne</span></div><div class="pv-moves"><button type="button" class="pv-step '+(variationIndex===0?"active":"")+'" data-pv-step="0">Départ</button>'+pvLine+'</div></div>':"";
- const coachDetail=!freeBoard?(index>0?(active?.analysis?.positionDetails?.[index-1]||null):(active?.analysis?.positionDetails?.[0]||null)):null;
+ const coachDetail=!freeBoard?(activeAnalysisMove||(index>0?(active?.analysis?.positionDetails?.[index-1]||null):(active?.analysis?.positionDetails?.[0]||null))):null;
  const coach=coachMessage(coachDetail);
  const coachPanel='<aside class="review-side"><section class="coach-card"><div class="coach-avatar" aria-hidden="true">♞</div><div class="coach-identity"><strong>Ton coach</strong><span>Conseil sur ton coup</span></div><div class="coach-message"><strong>'+esc(freeBoard?"À toi de jouer !":coach.title)+'</strong><p>'+esc(freeBoard?"Sélectionne une pièce : les cases où elle peut aller sont indiquées par des points. Les commandes sous l’échiquier permettent d’annuler et de rejouer tes coups.":coach.body)+'</p><small>'+esc(freeBoard?"Les coordonnées des cases restent visibles pour t'aider à lire les positions.":coach.tip)+'</small></div></section></aside>';
  const controls=freeBoard
