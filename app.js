@@ -99,7 +99,20 @@ document.querySelectorAll("[data-goto]").forEach(btn=>btn.addEventListener("clic
 $("sync-button").addEventListener("click",syncChessCom);$("sync-button-games").addEventListener("click",syncChessCom);$("pgn-file").addEventListener("change",e=>importPgnFile(e.target.files[0]));$("game-search").addEventListener("input",()=>renderGames([...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""))));$("result-filter").addEventListener("change",()=>renderGames([...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""))));$("opening-color-filter").addEventListener("change",drawOpeningTable);
 document.addEventListener("click",e=>{const b=e.target.closest("[data-open-game]");if(!b)return;const id=b.dataset.openGame;document.querySelector('[data-tab="training"]').click();const select=$("analysis-game-select");if(select){select.value=id;$("analyse-game-button").click();}});
 games=readStoredGames();render();
-if("serviceWorker" in navigator && location.protocol.startsWith("http"))window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load",async()=>{
+    try{
+      const registration=await navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"});
+      registration.update().catch(()=>{});
+    }catch(error){console.warn("Mise à jour hors ligne indisponible",error);}
+  });
+  let refreshing=false;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{
+    if(refreshing)return;
+    refreshing=true;
+    location.reload();
+  });
+}
 
 
 // Interface publique minimale pour le module d'analyse moteur.
