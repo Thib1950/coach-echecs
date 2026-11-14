@@ -122,7 +122,7 @@ async function analyseSelectedGame(){
   if (!game) { $("analysis-results").innerHTML='<div class="empty-state">Aucune partie sélectionnée.</div>'; return; }
   if (!game.pgn) { $("analysis-results").innerHTML='<div class="empty-state">Le PGN de cette partie n'est pas disponible. Réimporte la partie depuis Chess.com pour l'analyser.</div>'; return; }
   busy = true; $("analyse-game-button").disabled = true; $("analyse-game-button").textContent = "Analyse en cours…";
-  $("analysis-progress").hidden = false; $("analysis-results").innerHTML = "";
+  $("analysis-progress").hidden = false; $("analysis-results").innerHTML = ""; $("game-replay-area").innerHTML = "";
   try {
     const parsed = new Chess();
     parsed.loadPgn(game.pgn);
