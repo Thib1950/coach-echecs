@@ -1,4 +1,4 @@
-const CACHE="coach-echecs-shell-v35";
+const CACHE="coach-echecs-shell-v36";
 const FILES=["./","./index.html","./styles.css","./app.js","./analysis.js","./review.js","./lesson.js","./openings.js","./engine-worker.js","./manifest.webmanifest","./favicon.svg"];
 
 // Le moteur est servi sous une URL de même origine. Le service worker récupère
