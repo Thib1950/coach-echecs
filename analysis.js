@@ -147,7 +147,7 @@ function renderResults(g, report){
     '<div class="analysis-summary"><div><strong>'+report.moves.length+'</strong><span>coups analysés</span></div><div><strong>'+counts.inaccuracy+'</strong><span>imprécisions</span></div><div><strong>'+counts.mistake+'</strong><span>erreurs</span></div><div><strong>'+counts.blunder+'</strong><span>gaffes</span></div><div><strong>'+(accuracyFromMoves(report.moves)??"—")+' %</strong><span>précision estimée</span></div></div>'+
     '<p class="analysis-verdict">'+(issues.length?"Stockfish a trouvé "+issues.length+" coup(s) à revoir. Les symboles sur l’échiquier indiquent la qualité de chaque coup lorsque tu le fais défiler.":"Aucune erreur importante détectée dans les coups examinés.")+'</p>'+
     '<p class="small muted">Stockfish 19 Lite · '+report.positions.length+' positions examinées · '+report.covered+' demi-coups parcourus. Analyse indicative à profondeur limitée.</p>';
-  window.CoachReview?.setAnalysis?.(report.moves,g);
+  if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,g);
 }
 function accuracyFromMoves(moves){
   const list=(moves||[]).map(m=>Math.max(0,Number(m.loss)||0));
@@ -190,20 +190,36 @@ async function analyseSelectedGame(gameIdOverride){
       const bestSan=sanForUci(beforeFen,beforeEval.bestmove);
       const moverSign=move.color==="w"?1:-1;
       const loss=beforeEval.bestmove===playedUci?0:Math.max(0,moverSign*(beforeEval.scoreWhite-afterEval.scoreWhite));
-      const category=classify(loss),facts=bestMoveFacts(beforeFen,beforeEval.bestmove);
+      const facts=bestMoveFacts(beforeFen,beforeEval.bestmove);
       const playedBoard=new Chess(beforeFen);playedBoard.move({from:move.from,to:move.to,promotion:move.promotion});
       const detail={
         fen:beforeFen,bestUci:beforeEval.bestmove,pvUci:beforeEval.pv,
         pvSan:pvToSan(beforeFen,beforeEval.pv,8),
-        evalWhite:beforeEval.scoreWhite,afterEvalWhite:afterEval.scoreWhite,
+        evalWhite:beforeEval.scoreWhite,afterEvalWhite:null,
         color:move.color,ply:i,moveNo:Math.floor(i/2)+1,
-        played:move.san,playedUci,best:bestSan,loss,...category,
+        played:move.san,playedUci,best:bestSan,loss:null,label:"Analyse en cours",kind:"good",
         playedCapture:!!move.captured,playedCheck:playedBoard.isCheck(),
         playedMate:playedBoard.isCheckmate(),...facts,depth:beforeEval.depth
       };
       report.positionDetails.push(detail);
       if(move.color===userSide)report.moves.push(detail);
-      report.covered=i+1;report.depth=Math.max(report.depth,beforeEval.depth||0);
+      report.covered=i;
+      game.analysis={
+        date:new Date().toISOString(),moves:report.moves,positions:report.positions,
+        positionDetails:report.positionDetails,covered:report.covered,
+        accuracy:null,partial:true
+      };
+      // Publie la flèche du meilleur coup dès que Stockfish a terminé cette position.
+      window.CoachApp.saveGames();
+      renderResults(game,report);
+      if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,game);
+
+      const afterEval=await evalPosition(engine,replay.fen());
+      const moverSign=move.color==="w"?1:-1;
+      const loss=beforeEval.bestmove===playedUci?0:Math.max(0,moverSign*(beforeEval.scoreWhite-afterEval.scoreWhite));
+      Object.assign(detail,{afterEvalWhite:afterEval.scoreWhite,loss,...classify(loss)});
+      report.covered=i+1;
+      report.depth=Math.max(report.depth,beforeEval.depth||0);
       report.positions.push(afterEval.scoreWhite);
       beforeEval=afterEval;
       game.analysis={
@@ -211,12 +227,9 @@ async function analyseSelectedGame(gameIdOverride){
         positionDetails:report.positionDetails,covered:report.covered,
         accuracy:accuracyFromMoves(report.moves),partial:true
       };
-      if(i===1||i===history.length-1||(i+1)%3===0){
-        window.CoachApp.saveGames();
-        renderResults(game,report);
-        if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,game);
-        else window.CoachReview?.setAnalysis?.(report.moves,game);
-      }
+      window.CoachApp.saveGames();
+      renderResults(game,report);
+      if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,game);
       $("analysis-progress-fill").style.width=Math.round((i+1)/history.length*100)+"%";
       $("analysis-progress-label").textContent="Stockfish analyse en arrière-plan · "+(i+1)+" / "+history.length+" demi-coups · "+elapsedText(startedAt);
     }
