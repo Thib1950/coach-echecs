@@ -735,3 +735,39 @@ html,body,button,a,input,select{touch-action:manipulation}
 .review-free-exit{min-height:42px;padding:0 15px;border:1px solid #607b94;border-radius:10px;background:#1b2b40;color:#edf3fa;font:750 11px 'DM Sans';cursor:pointer;white-space:nowrap}
 .review-free-exit:hover{background:#304963;border-color:#c5e86c}
 @media(max-width:760px){.review-free-exit{width:100%}}
+
+/* v37 — alignement des résultats, total clair et analyse en mode libre */
+.recent-game-row{grid-template-columns:minmax(0,1fr) auto auto;align-items:center}
+.recent-game-main{display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:0}
+.recent-game-player{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:14px;min-width:0}
+.recent-game-player .player-line{min-width:0}
+.recent-game-player .recent-game-opponent{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent-game-player .recent-game-result{justify-self:center;min-width:82px}
+.recent-game-player .recent-game-elo{display:flex;align-items:center;gap:5px;white-space:nowrap;font:800 16px Manrope;color:#e8f1fb}
+.recent-game-player .recent-game-elo small{font:800 9px 'DM Sans';color:#a9bbcf}
+.recent-game-meta{margin-top:0}
+.results-total{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 17px;padding:12px 15px;border:1px solid #435c73;border-radius:10px;background:#1b3045;color:#dbe8f6}
+.results-total span{font-size:11px;font-weight:900;letter-spacing:.7px}
+.results-total strong{font:900 24px Manrope;color:#d8f2a5;font-variant-numeric:tabular-nums}
+#result-bars .bar-item strong{white-space:nowrap}
+.opening-study-shell{display:grid;grid-template-columns:minmax(240px,440px) minmax(0,1fr);gap:12px;align-items:center;padding:14px;border:1px solid #435c73;border-radius:12px;background:#142237}
+.opening-study-heading{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.opening-study-board{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));aspect-ratio:1;width:100%;max-width:440px;overflow:hidden;border-radius:8px}
+.opening-study-board .opening-square{aspect-ratio:1;border:0;padding:0}
+.opening-study-board .opening-square img{width:90%;height:90%;pointer-events:none}
+.opening-study-feedback{margin:0;color:#d5e3f1;font-size:13px;line-height:1.5}
+.opening-study-actions{grid-column:2;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.opening-study-actions span{font-size:11px;color:#afc2d5}
+.opening-study-actions button{border:1px solid #8caf43;border-radius:8px;background:#344d2b;color:#efffd1;padding:9px 12px;font:700 11px 'DM Sans'}
+@media(max-width:700px){
+ .recent-game-player{grid-template-columns:minmax(0,1fr) auto;gap:8px}
+ .recent-game-player .recent-game-result{grid-column:2;grid-row:1;min-width:76px}
+ .recent-game-player .recent-game-elo{grid-column:2;grid-row:2;justify-self:center}
+ .recent-game-row{grid-template-columns:minmax(0,1fr) auto;gap:10px}
+ .recent-game-precision{grid-column:1;grid-row:2;text-align:left}
+ .recent-review-button{grid-column:2;grid-row:2}
+ .opening-study-shell{grid-template-columns:1fr}
+ .opening-study-heading{grid-column:1}
+ .opening-study-board{max-width:440px;margin:0 auto}
+ .opening-study-actions{grid-column:1}
+}
