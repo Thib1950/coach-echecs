@@ -113,24 +113,47 @@ function sanForUci(fen, uci){
   return found ? found.san : uci;
 }
 function elapsedText(startedAt){const seconds=Math.floor((Date.now()-startedAt)/1000);return Math.floor(seconds/60)+":"+String(seconds%60).padStart(2,"0");}
-function classify(loss){
-  if(loss<=0.01)return {label:"Coup parfait",kind:"perfect"};
-  if(loss<15)return {label:"Meilleur coup",kind:"best"};
-  if(loss<35)return {label:"Bon coup",kind:"good"};
-  if(loss<90)return {label:"Imprécision",kind:"inaccuracy"};
-  if(loss<180)return {label:"Erreur",kind:"mistake"};
+function winPercent(cp){
+  const value=Math.max(-1000,Math.min(1000,Number(cp)||0));
+  return 50+50*(2/(1+Math.exp(-0.00368208*value))-1);
+}
+function moveAccuracyFromWinLoss(loss){
+  const value=Math.max(0,Number(loss)||0);
+  if(value<=0)return 100;
+  return Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*value)-3.1669));
+}
+function classify(winLoss,bestMove=false){
+  if(bestMove)return {label:"Meilleur coup",kind:"best"};
+  if(winLoss<2)return {label:"Excellent",kind:"excellent"};
+  if(winLoss<5)return {label:"Bon coup",kind:"good"};
+  if(winLoss<10)return {label:"Imprécision",kind:"inaccuracy"};
+  if(winLoss<20)return {label:"Erreur",kind:"mistake"};
   return {label:"Gaffe",kind:"blunder"};
 }
-function isBrilliantSacrifice(fen,uci,loss){
-  if(!uci||loss>=15)return false;
+function isBrilliantSacrifice(fen,uci,winLoss,beforeEval,afterEval){
+  if(!uci||winLoss>0.01||!beforeEval||!afterEval)return false;
   try{
     const before=new Chess(fen),piece=before.get(uci.slice(0,2));
     const value={p:1,n:3,b:3,r:5,q:9,k:100}[piece?.type]||0;
     if(value<3)return false;
     const after=new Chess(fen);
     after.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]});
-    return after.moves({verbose:true}).some(move=>move.to===uci.slice(2,4)&&!!move.captured);
+    const target=uci.slice(2,4);
+    const capturable=after.moves({verbose:true}).some(move=>move.to===target&&!!move.captured);
+    if(!capturable)return false;
+    const reply=afterEval.bestmove;
+    if(reply&&reply.slice(2,4)===target)return false;
+    const moverSign=fen.split(" ")[1]==="w"?1:-1;
+    const beforeWin=winPercent(beforeEval.scoreWhite*moverSign);
+    const afterWin=winPercent(afterEval.scoreWhite*moverSign);
+    return beforeWin<85&&afterWin>35&&(afterEval.scoreWhite*moverSign)>-150;
   }catch{return false;}
+}
+function gameAccuracyFromMoves(moves){
+  const values=(moves||[]).map(m=>moveAccuracyFromWinLoss(m.winLossPercent)).filter(Number.isFinite);
+  if(!values.length)return null;
+  const safe=values.map(v=>Math.max(0.1,v));
+  return Math.round(safe.length/safe.reduce((sum,v)=>sum+1/v,0));
 }
 function resultName(g){
   const white = (g.white || "").toLowerCase() === user;
@@ -153,19 +176,15 @@ function refreshGamePicker(){
   $("analyse-game-button").disabled = !games.length || busy;
 }
 function renderResults(g, report){
-  const kinds=["brilliant","perfect","best","good","inaccuracy","mistake","blunder"];
+  const kinds=["brilliant","great","best","excellent","good","book","inaccuracy","mistake","miss","blunder"];
   const counts=Object.fromEntries(kinds.map(k=>[k,0]));
-  report.moves.forEach(m=>{if(m.loss!==null&&m.loss!==undefined&&counts[m.kind]!==undefined)counts[m.kind]++;});
-  const meta={brilliant:["!!","Brillants"],perfect:["✓","Parfaits"],best:["★","Meilleurs"],good:["✓","Bons coups"],inaccuracy:["?!","Imprécisions"],mistake:["?","Erreurs"],blunder:["??","Gaffes"]};
+  report.moves.forEach(m=>{if(counts[m.kind]!==undefined)counts[m.kind]++;});
+  const meta={brilliant:["!!","Brillants"],great:["!","Grands coups"],best:["★","Meilleurs"],excellent:["👍","Excellents"],good:["✓","Bons coups"],book:["▤","Théorie"],inaccuracy:["?!","Imprécisions"],mistake:["?","Erreurs"],miss:["×","Occasions manquées"],blunder:["??","Gaffes"]};
   const tiles=kinds.map(k=>'<div class="summary-metric '+k+'"><span class="metric-icon">'+meta[k][0]+'</span><strong>'+counts[k]+'</strong><span class="metric-label">'+meta[k][1]+'</span></div>').join("");
-  $("analysis-results").innerHTML='<div class="analysis-summary">'+tiles+'</div><p class="small muted">Précision estimée sur tes coups uniquement · analyse moteur indicative à profondeur limitée. Les coups brillants sont comptés uniquement lorsqu’un sacrifice décisif est reconnu.</p>';
+  $("analysis-results").innerHTML='<div class="analysis-summary">'+tiles+'</div>';
   if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,g);
 }
-function accuracyFromMoves(moves){
-  const list=(moves||[]).filter(m=>m.loss!==null&&m.loss!==undefined&&Number.isFinite(Number(m.loss))).map(m=>Math.max(0,Number(m.loss)||0));
-  if(!list.length)return null;
-  return Math.round(list.reduce((sum,loss)=>sum+100*Math.exp(-0.01*Math.sqrt(loss)),0)/list.length);
-}
+function accuracyFromMoves(moves){return gameAccuracyFromMoves(moves);}
 function bestMoveFacts(fen,uci){
   if(!uci||uci==="(none)")return {bestCapture:false,bestCheck:false};
   try{
@@ -225,9 +244,10 @@ async function analyseSelectedGame(gameIdOverride,options={}){
       const afterEval=await evalPosition(engine,replay.fen(),movetime);
       const moverSign=move.color==="w"?1:-1;
       const loss=beforeEval.bestmove===playedUci?0:Math.max(0,moverSign*(beforeEval.scoreWhite-afterEval.scoreWhite));
-      const quality=classify(loss);
-      if(playedUci===beforeEval.bestmove&&isBrilliantSacrifice(beforeFen,playedUci,loss)){quality.label="Coup brillant";quality.kind="brilliant";}
-      Object.assign(detail,{afterEvalWhite:afterEval.scoreWhite,loss,...quality});
+      const winLossPercent=Math.max(0,winPercent(beforeEval.scoreWhite*moverSign)-winPercent(afterEval.scoreWhite*moverSign));
+      const quality=classify(winLossPercent,playedUci===beforeEval.bestmove);
+      if(playedUci===beforeEval.bestmove&&isBrilliantSacrifice(beforeFen,playedUci,winLossPercent,beforeEval,afterEval)){quality.label="Coup brillant";quality.kind="brilliant";}
+      Object.assign(detail,{afterEvalWhite:afterEval.scoreWhite,loss,winLossPercent,...quality});
       report.covered=i+1;
       report.depth=Math.max(report.depth,beforeEval.depth||0);
       report.positions.push(afterEval.scoreWhite);
