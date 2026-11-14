@@ -149,7 +149,7 @@ async function analyseSelectedGame(){
 }
 
 window.addEventListener("coach:analyze-game",event=>{
-  const id=event.detail?.gameId, select=$("analysis-game-select");
+  const id=event.detail?.gameId,select=$("analysis-game-select");
   document.querySelector('[data-tab="training"]')?.click();
   refreshGamePicker();
   if(select&&id!==undefined)select.value=String(id);
@@ -157,8 +157,7 @@ window.addEventListener("coach:analyze-game",event=>{
   if(!chosen){$("analysis-results").innerHTML='<div class="empty-state">Cette partie est introuvable dans les données de cet appareil.</div>';return;}
   analyseSelectedGame();
 });
-document.addEventListener("DOMContentLoaded",()=>{
-  refreshGamePicker();
-  $("analyse-game-button").addEventListener("click",analyseSelectedGame);
-  window.addEventListener("coach:games-updated",refreshGamePicker);
-});
+$("analyse-game-button").addEventListener("click",analyseSelectedGame);
+window.addEventListener("coach:games-updated",refreshGamePicker);
+window.CoachAnalysis={analyze:gameId=>window.dispatchEvent(new CustomEvent("coach:analyze-game",{detail:{gameId}}))};
+refreshGamePicker();
