@@ -181,3 +181,8 @@ html,body,button,a,input,select{touch-action:manipulation}
 .game-result.win{color:#b8f18a;background:#263b27;border-color:#476443}
 .game-result.loss{color:#ff9da6;background:#482b32;border-color:#71414a}
 .game-result.draw{color:#d5deea}
+
+/* La carte de précision complète les indicateurs d'entraînement */
+#panel-training .stats-grid.three{grid-template-columns:repeat(4,minmax(0,1fr))}
+.analysis-summary{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:760px){#panel-training .stats-grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}.analysis-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
