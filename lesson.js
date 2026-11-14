@@ -53,6 +53,12 @@ function showBest(){
  try{b.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||"q"});lesson.fen=b.fen();lesson.done=true;draw("Le meilleur coup était "+lesson.move.best+". Observe la position obtenue et demande-toi ce qu’il menace.");}
  catch{draw("Le meilleur coup n’a pas pu être affiché dans cette position.");}
 }
+window.CoachLessons={openForGameMove(gameId,moveIndex){
+ const game=(window.CoachApp?.getGames?.()||[]).find(g=>String(g.id)===String(gameId));
+ const move=game?.analysis?.moves?.[Number(moveIndex)];
+ if(!move){$("lesson-area").innerHTML='<div class="empty-state">Analyse d’abord cette partie pour créer les exercices.</div>';return;}
+ openLesson(move);
+}};
 document.addEventListener("DOMContentLoaded",()=>{
  const target=$("analysis-results");
  if(!target)return;
