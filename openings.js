@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id),USER="gone_1950";
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let database=[],dbError="",groups=[],currentKey=null,exercise=null;
 const glyph={wk:"♔",wq:"♕",wr:"♖",wb:"♗",wn:"♘",wp:"♙",bk:"♚",bq:"♛",br:"♜",bb:"♝",bn:"♞",bp:"♟"};
-const FR=[[/Sicilian Defense/gi,"Défense sicilienne"],[/King's Pawn Game/gi,"Partie du pion roi"],[/Queen's Pawn Game/gi,"Partie du pion dame"],[/Four Knights Game/gi,"Partie des quatre cavaliers"],[/King's Pawn Game/gi,"Partie du pion roi"],[/Queen's Pawn Game/gi,"Partie du pion dame"],[/Four Knights Game/gi,"Partie des quatre cavaliers"],[/French Defense/gi,"Défense française"],[/Caro-Kann Defense/gi,"Défense Caro-Kann"],[/King's Indian Defense/gi,"Défense est-indienne"],[/Queen's Gambit/gi,"Gambit dame"],[/King's Gambit/gi,"Gambit roi"],[/Ruy Lopez/gi,"Partie espagnole"],[/Italian Game/gi,"Partie italienne"],[/Scotch Game/gi,"Partie écossaise"],[/English Opening/gi,"Ouverture anglaise"],[/Scandinavian Defense/gi,"Défense scandinave"],[/Alekhine's Defense/gi,"Défense Alekhine"],[/Pirc Defense/gi,"Défense Pirc"],[/Dutch Defense/gi,"Défense hollandaise"],[/Slav Defense/gi,"Défense slave"],[/Nimzo-Indian Defense/gi,"Défense nimzo-indienne"],[/Grünfeld Defense/gi,"Défense Grünfeld"],[/Benoni Defense/gi,"Défense Benoni"],[/Reti Opening/gi,"Ouverture Réti"],[/Opening/gi,"Ouverture"],[/Defense/gi,"Défense"],[/Gambit/gi,"Gambit"],[/Advanced Variation/gi,"Variante d’avance"],[/Variation/gi,"Variante"],[/Attack/gi,"Attaque"],[/Accepted/gi,"accepté"],[/Declined/gi,"refusé"],[/Exchange/gi,"d'échange"],[/Classical/gi,"classique"],[/System/gi,"système"]];
+const FR=[[/London System/gi,"Système de Londres"],[/Jobava London/gi,"Londres Jobava"],[/Sicilian Defense/gi,"Défense sicilienne"],[/King's Pawn Game/gi,"Partie du pion roi"],[/Queen's Pawn Game/gi,"Partie du pion dame"],[/Four Knights Game/gi,"Partie des quatre cavaliers"],[/King's Pawn Game/gi,"Partie du pion roi"],[/Queen's Pawn Game/gi,"Partie du pion dame"],[/Four Knights Game/gi,"Partie des quatre cavaliers"],[/French Defense/gi,"Défense française"],[/Caro-Kann Defense/gi,"Défense Caro-Kann"],[/King's Indian Defense/gi,"Défense est-indienne"],[/Queen's Gambit/gi,"Gambit dame"],[/King's Gambit/gi,"Gambit roi"],[/Ruy Lopez/gi,"Partie espagnole"],[/Italian Game/gi,"Partie italienne"],[/Scotch Game/gi,"Partie écossaise"],[/English Opening/gi,"Ouverture anglaise"],[/Scandinavian Defense/gi,"Défense scandinave"],[/Alekhine's Defense/gi,"Défense Alekhine"],[/Pirc Defense/gi,"Défense Pirc"],[/Dutch Defense/gi,"Défense hollandaise"],[/Slav Defense/gi,"Défense slave"],[/Nimzo-Indian Defense/gi,"Défense nimzo-indienne"],[/Grünfeld Defense/gi,"Défense Grünfeld"],[/Benoni Defense/gi,"Défense Benoni"],[/Reti Opening/gi,"Ouverture Réti"],[/Opening/gi,"Ouverture"],[/Defense/gi,"Défense"],[/Gambit/gi,"Gambit"],[/Advanced Variation/gi,"Variante d’avance"],[/Variation/gi,"Variante"],[/Attack/gi,"Attaque"],[/Accepted/gi,"accepté"],[/Declined/gi,"refusé"],[/Exchange/gi,"d'échange"],[/Classical/gi,"classique"],[/System/gi,"système"]];
 function frenchName(name){let s=name||"Ouverture non classée";for(const [re,to] of FR)s=s.replace(re,to);return s;}
 function familyName(name){return frenchName(String(name||"Ouverture non classée").split(/\s*[:–—]\s*/)[0].trim());}
 function gameMoves(game){try{const c=new Chess();c.loadPgn(game.pgn||"");return c.history({verbose:true}).map(m=>m.from+m.to+(m.promotion||""));}catch{return [];}}
@@ -52,12 +52,7 @@ function render(){
  $("opening-table").innerHTML=rows.length?rows.map(g=>{const decided=g.w+g.d+g.l,points=(g.w+g.d/2)/(decided||1),status=decided<3?"À confirmer":points<.45?"À travailler":points>=.6?"Bon repère":"À consolider";const statusClass=decided>=3&&points<.45?"needs-work":decided>=3&&points>=.6?"solid":"neutral";return '<div class="opening-family-row"><div class="opening-family-main"><strong>'+esc(g.family)+'</strong><small>Blancs : '+g.white+' partie(s) · Noirs : '+g.black+' partie(s)</small></div><div class="opening-family-status"><span class="opening-status '+statusClass+'">'+status+'</span></div><div class="opening-family-stats"><b>'+g.shown+' partie(s)</b><small>'+Math.round(g.shown/(totalGames||1)*100)+' % des parties</small><small class="opening-win-rate">'+(g.winRate===null?"—":g.winRate+" % de victoires")+'</small></div><div class="opening-family-actions"><button type="button" class="opening-family-button" data-opening-family="'+esc(g.key)+'">Étudier</button><button type="button" class="opening-family-button secondary" data-opening-family-exercise="'+esc(g.key)+'">Exercice</button></div></div>';}).join(""):'<div class="empty-state">'+(dbError?"Les noms d'ouvertures n'ont pas pu être chargés. Vérifie ta connexion puis rouvre cet onglet.":"Aucune ouverture reconnue dans tes parties importées.")+'</div>';
  $("opening-table").querySelectorAll("[data-opening-family-exercise]").forEach(button=>button.addEventListener("click",event=>{
   event.preventDefault();event.stopPropagation();
-  const group=groups.find(item=>item.key===button.dataset.openingFamilyExercise);if(!group)return;
-  renderDetail(group);
-  const variants=[...group.variants.values()].map(v=>({...v,winRate:performance(v.games)})).sort((a,b)=>(a.winRate??101)-(b.winRate??101)||b.count-a.count);
-  const chosen=variants.find(v=>v.winRate!==null)||variants[0];
-  if(chosen)startExercise(group,chosen);
-  else $("opening-practice").innerHTML='<p class="muted">Aucune ligne jouable n’est disponible pour cette ouverture.</p>';
+  const group=groups.find(item=>item.key===button.dataset.openingFamilyExercise);if(group)startExercise(group);
  }));
  if(currentKey){const g=groups.find(x=>x.key===currentKey);if(g)renderDetail(g);}
 }
@@ -67,7 +62,7 @@ function renderDetail(g){
  const variantsHtml=variants.map((v,i)=>{const w=v.games.filter(x=>outcome(x)==="win").length,d=v.games.filter(x=>outcome(x)==="draw").length,l=v.games.filter(x=>outcome(x)==="loss").length;return '<div class="opening-variant-row"><div><strong>'+esc(v.name)+'</strong><small>'+v.count+' partie(s) · V/N/D : '+w+'/'+d+'/'+l+' · '+(v.winRate===null?"—":v.winRate+" % de victoires")+' · '+esc(v.book?.eco||"Variante issue de tes parties")+'</small></div><div class="opening-variant-actions"><button type="button" data-opening-preview="'+i+'">Étudier la ligne</button></div></div><div class="opening-variant-preview" id="opening-preview-'+i+'" hidden></div>';}).join("");
  $("opening-detail").innerHTML='<article class="surface opening-detail-card"><div class="surface-heading"><div><p class="eyebrow">OUVERTURE À TRAVAILLER</p><h3>'+esc(g.family)+'</h3><p class="muted">'+g.games.length+' partie(s) dans ton historique · '+g.white+' avec les Blancs · '+g.black+' avec les Noirs</p></div><button class="text-button" id="close-opening-detail">Fermer ✕</button></div><div class="opening-variants"><div class="opening-variants-heading"><h4>Variantes repérées dans tes parties</h4><button type="button" class="opening-family-button" id="opening-family-exercise">Exercice sur cette ouverture</button></div>'+variantsHtml+'</div><div id="opening-practice"></div></article>';
  $("close-opening-detail").addEventListener("click",()=>{$("opening-detail").innerHTML="";currentKey=null;exercise=null;});
- $("opening-family-exercise").addEventListener("click",()=>{const weakest=variants.find(v=>v.winRate!==null)||variants[0];if(weakest)startExercise(g,weakest);});
+ $("opening-family-exercise").addEventListener("click",()=>startExercise(g));
  
  $("opening-detail").querySelectorAll("[data-opening-preview]").forEach(button=>button.addEventListener("click",()=>renderVariantPreview(variants[Number(button.dataset.openingPreview)],Number(button.dataset.openingPreview))));
  $("opening-detail").scrollIntoView({behavior:"smooth",block:"start"});
@@ -81,47 +76,73 @@ function renderVariantPreview(variant,index){
  let cells="";for(let rank=8;rank>=1;rank--)for(let f=0;f<8;f++){const file=files[f],piece=board.get(file+rank),light=((rank-1+f)%2)===1;cells+='<div class="opening-preview-square '+(light?"light":"dark")+'">'+(piece?'<img src="https://lichess1.org/assets/piece/cburnett/'+piece.color+piece.type.toUpperCase()+'.svg" alt="'+glyphs[piece.color+piece.type]+'">':"")+'</div>';}
  root.hidden=false;root.innerHTML='<div class="opening-preview-board">'+cells+'</div><div class="opening-preview-info"><strong>Position après '+Math.ceil(line.length/2)+' coups</strong><p>'+esc(sanLine(line))+'</p><small>Observe le placement des pièces et la structure de pions caractéristiques de cette ligne.</small></div>';
 }
-function startExercise(group,variant){
- const game=variant.games.slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""))[0];
- let line=(variant.book?.moves?.slice()||gameMoves(game||{})).slice(0,14);
- if(!line.length){$("opening-practice").innerHTML='<p class="muted">La suite de coups n’est pas disponible pour cette variante.</p>';return;}
- const filter=$("opening-color-filter").value;
- const whiteCount=variant.games.filter(g=>sideOf(g)==="white").length,blackCount=variant.games.length-whiteCount;
- const side=filter==="white"?"w":filter==="black"?"b":(whiteCount>=blackCount?"w":"b");
- let board=new Chess(),ply=0,selected=null,feedback="À toi : retrouve le prochain coup de développement de cette ouverture. Pense au contrôle du centre et à la sortie de tes pièces.";
- const applyOpponentMoves=()=>{while(ply<line.length&&board.turn()!==side){const u=line[ply++];try{board.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]});}catch{break;}}};
- applyOpponentMoves();
- const root=$("opening-practice");
+function exercisePositions(group,side){
+ const out=[];
+ for(const game of group.games){
+  if(sideOf(game)!==(side==="w"?"white":"black")||!game.pgn)continue;
+  try{
+   const parsed=new Chess();parsed.loadPgn(game.pgn);const history=parsed.history({verbose:true}),board=new Chess();
+   for(let i=0;i<Math.min(history.length,14);i++){
+    if(i>=1&&board.turn()===side)out.push({fen:board.fen(),game,ply:i});
+    const move=history[i];board.move({from:move.from,to:move.to,promotion:move.promotion});
+   }
+  }catch{}
+ }
+ return out;
+}
+async function startExercise(group){
+ currentKey=group.key;
+ const filter=$("opening-color-filter").value,white=group.games.filter(g=>sideOf(g)==="white").length,black=group.games.length-white;
+ let side=filter==="white"?"w":filter==="black"?"b":(white>=black?"w":"b");
+ let candidates=exercisePositions(group,side);if(!candidates.length){side=side==="w"?"b":"w";candidates=exercisePositions(group,side);}
+ const root=$("opening-detail");
+ if(!candidates.length){
+  root.innerHTML='<article class="surface opening-detail-card"><div class="surface-heading"><div><p class="eyebrow">ENTRAÎNEMENT PERSONNALISÉ</p><h3>'+esc(group.family)+'</h3></div><button type="button" class="text-button" id="close-opening-exercise">Retour</button></div><p class="muted">Je n’ai pas trouvé de position exploitable dans tes parties pour cette ouverture.</p></article>';
+  root.querySelector("#close-opening-exercise").onclick=()=>renderDetail(group);return;
+ }
+ let currentIndex=Math.floor(Math.random()*candidates.length),board=null,selected=null,best=null,busy=false,finished=false;
+ let feedback="Le coach prépare une position issue de tes parties et cherche le meilleur coup avec Stockfish.";
+ const close=()=>renderDetail(group);
  const draw=()=>{
-  const files=side==="w"?["a","b","c","d","e","f","g","h"]:["h","g","f","e","d","c","b","a"];
-  const ranks=side==="w"?[8,7,6,5,4,3,2,1]:[1,2,3,4,5,6,7,8];
-  const legal=selected?board.moves({square:selected,verbose:true}):[],targets=new Map(legal.map(m=>[m.to,m.captured?"capture":"move"]));
-  let cells="";
+  if(!board)return;
+  const files=side==="w"?["a","b","c","d","e","f","g","h"]:["h","g","f","e","d","c","b","a"],ranks=side==="w"?[8,7,6,5,4,3,2,1]:[1,2,3,4,5,6,7,8];
+  const legal=selected?board.moves({square:selected,verbose:true}):[],targets=new Map(legal.map(m=>[m.to,m.captured?"capture":"move"]));let cells="";
   ranks.forEach((rank,r)=>files.forEach((file,f)=>{
    const sq=file+rank,p=board.get(sq),light=((rank-1+(file.charCodeAt(0)-97))%2)===1,classes=["opening-square",light?"light":"dark"];
    if(selected===sq)classes.push("selected");if(targets.has(sq))classes.push(targets.get(sq)==="capture"?"capture-target":"legal-target");
    const coords=(f===0?'<span class="opening-rank-coordinate">'+rank+'</span>':"")+(r===7?'<span class="opening-file-coordinate">'+file.toUpperCase()+'</span>':"");
    cells+='<button type="button" class="'+classes.join(" ")+'" data-opening-square="'+sq+'" aria-label="'+sq+'">'+(p?'<img class="chess-piece-image" src="https://lichess1.org/assets/piece/cburnett/'+(p.color==="w"?"w":"b")+p.type.toUpperCase()+'.svg" alt="'+glyph[p.color+p.type]+'">':"")+coords+(targets.has(sq)&&targets.get(sq)==="move"?'<i class="opening-legal-dot"></i>':"")+'</button>';
   }));
-  const done=ply>=line.length;
-  root.innerHTML='<div class="opening-practice-layout"><div class="opening-practice-board">'+cells+'</div><aside class="opening-practice-coach"><div class="coach-avatar">♞</div><p class="eyebrow">TON COACH</p><h4>'+esc(group.family)+'</h4><strong>'+(done?"Exercice terminé !":"À toi de jouer")+'</strong><p>'+esc(done?"Bravo, tu as parcouru toute la ligne d’ouverture. Tu peux recommencer pour la mémoriser.":feedback)+'</p><small>Joue les coups avec les pièces et les points de destination, comme dans l’onglet Entraînement.</small><button type="button" data-opening-reset>Recommencer</button></aside></div>';
+  const candidate=candidates[currentIndex];
+  root.innerHTML='<article class="surface opening-detail-card opening-exercise-screen"><div class="surface-heading"><div><p class="eyebrow">EXERCICE SUR TES PARTIES</p><h3>'+esc(group.family)+'</h3><p class="muted">'+esc(candidate.game.date||"Partie importée")+' · Position après '+candidate.ply+' demi-coups</p></div><button type="button" class="text-button" data-exercise-close>Retour aux ouvertures</button></div><div class="opening-practice-layout"><div class="opening-practice-board">'+cells+'</div><aside class="opening-practice-coach"><div class="coach-avatar">♞</div><p class="eyebrow">TON COACH</p><h4>'+esc(group.family)+'</h4><strong>'+(busy?"Analyse de la position…":finished?"Bien joué !":"Trouve le meilleur coup")+'</strong><p>'+esc(feedback)+'</p><small>Position tirée de ton historique. Les points indiquent les cases où tu peux jouer.</small><button type="button" data-exercise-next '+(busy?"disabled":"")+'>'+(finished?"Exercice suivant":"Nouvelle position")+'</button></aside></div></article>';
+  root.querySelectorAll(".chess-piece-image").forEach(img=>img.addEventListener("error",()=>{const fallback=document.createElement("span");fallback.className="piece";fallback.textContent=img.alt;img.replaceWith(fallback);},{once:true}));
  };
- root.querySelectorAll(".chess-piece-image").forEach(img=>img.addEventListener("error",()=>{const fallback=document.createElement("span");fallback.className="piece";fallback.textContent=img.alt;img.replaceWith(fallback);},{once:true}));
- root.onclick=event=>{
-  if(event.target.closest("[data-opening-reset]")){board=new Chess();ply=0;selected=null;feedback="Recommence la ligne : trouve le coup de développement attendu.";applyOpponentMoves();draw();return;}
-  const button=event.target.closest("[data-opening-square]");if(!button||ply>=line.length)return;
+ const loadPosition=async()=>{
+  const candidate=candidates[currentIndex];board=new Chess(candidate.fen);selected=null;best=null;finished=false;busy=true;feedback="Le moteur analyse cette position pour choisir un exercice pertinent.";draw();
+  try{
+   if(!window.CoachAnalysis?.analyzePosition)throw new Error("Le moteur d’analyse n’est pas encore disponible. Réessaie après avoir lancé une analyse de partie.");
+   best=await window.CoachAnalysis.analyzePosition(candidate.fen);
+   feedback=best.bestSan&&best.bestSan!=="—"?"À toi de trouver le meilleur coup. Le moteur a préparé sa recommandation.":"Trouve un coup actif pour améliorer ta position.";
+  }catch(error){feedback=error.message||"L’analyse de cette position a échoué.";}
+  busy=false;draw();
+ };
+ root.onclick=async event=>{
+  if(event.target.closest("[data-exercise-close]")){close();return;}
+  if(event.target.closest("[data-exercise-next]")){if(!busy){currentIndex=(currentIndex+1)%candidates.length;await loadPosition();}return;}
+  const button=event.target.closest("[data-opening-square]");if(!button||busy||finished||!best)return;
   const square=button.dataset.openingSquare,piece=board.get(square);
   if(!selected){if(piece&&piece.color===side){selected=square;draw();}return;}
   if(piece&&piece.color===side){selected=square;draw();return;}
-  const move=board.moves({square:selected,verbose:true}).find(m=>m.to===square);
-  if(!move){selected=null;draw();return;}
-  const uci=move.from+move.to+(move.promotion||"");
-  if(uci!==line[ply]){feedback="Ce coup est légal, mais il ne correspond pas à la suite de cette variante. Cherche un autre coup de développement.";selected=null;draw();return;}
-  board.move({from:move.from,to:move.to,promotion:move.promotion});ply++;selected=null;
-  feedback="Bien joué ! Le coup est conforme à cette ligne. Continue à développer tes pièces et à contrôler le centre.";
-  applyOpponentMoves();draw();
+  const move=board.moves({square:selected,verbose:true}).find(m=>m.to===square);if(!move){selected=null;draw();return;}
+  const uci=move.from+move.to+(move.promotion||"");board.move({from:move.from,to:move.to,promotion:move.promotion||"q"});selected=null;busy=true;feedback="Je vérifie ton coup avec Stockfish…";draw();
+  try{
+   const after=await window.CoachAnalysis.analyzePosition(board.fen()),sign=side==="w"?1:-1,loss=Math.max(0,sign*(best.scoreWhite-after.scoreWhite));
+   if(uci===best.bestmove||loss<=35){finished=true;feedback="Excellent ! "+(best.bestSan||"Ce coup")+(best.bestSan?" est le meilleur choix ou une très bonne alternative.":" améliore la position.")+" Tu peux passer à une autre position.";}
+   else{board.undo();feedback="Ce coup est légal, mais Stockfish trouve une réponse plus forte. Essaie encore en cherchant "+(best.bestSan||"un coup plus actif")+". La position est rétablie.";}
+  }catch(error){board.undo();feedback="Je n’ai pas pu vérifier ce coup : "+(error.message||"erreur du moteur")+". Essaie à nouveau.";}
+  busy=false;draw();
  };
- draw();
+ await loadPosition();
 }
 document.addEventListener("click",event=>{
  const button=event.target.closest("[data-opening-family]");if(button){const g=groups.find(x=>x.key===button.dataset.openingFamily);if(g)renderDetail(g);}
