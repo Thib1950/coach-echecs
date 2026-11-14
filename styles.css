@@ -309,3 +309,11 @@ html,body,button,a,input,select{touch-action:manipulation}
  .coach-message p{font-size:14px}
  .analysis-move-button{align-items:flex-start;flex-direction:row}
 }
+
+/* Afficher le détail complet des coups et les nouveaux symboles */
+#analysis-results .analysis-moves{display:grid!important}
+.move-quality.perfect{background:#80d6ad;color:#103b2a}
+.move-quality.best{background:#9bd1f5;color:#16344a}
+.move-quality.brilliant{background:#c6a2f4;color:#311d4d}
+.replay-layout{display:grid!important;grid-template-columns:minmax(300px,1.05fr) minmax(300px,.95fr);align-items:start}
+@media(max-width:650px){.replay-layout{display:flex!important;flex-direction:column;align-items:stretch}}
