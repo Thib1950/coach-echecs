@@ -1,0 +1,146 @@
+import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
+
+const $ = id => document.getElementById(id);
+const ENGINE_BASE = "https://cdn.jsdelivr.net/npm/stockfish@19.0.1/";
+let worker = null, engineReady = null, activeGameId = null, busy = false;
+const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const user = "gone_1950";
+
+function getEngine(){
+  if (engineReady) return engineReady;
+  engineReady = new Promise((resolve,reject) => {
+    try {
+      worker = new Worker("./engine-worker.js");
+      const timer = setTimeout(() => reject(new Error("Le moteur met trop de temps à démarrer. Vérifie ta connexion puis réessaie.")), 45000);
+      worker.onmessage = event => {
+        const line = String(event.data || "");
+        if (line === "uciok") worker.postMessage("isready");
+        if (line === "readyok") { clearTimeout(timer); $("engine-status").textContent = "Stockfish prêt"; $("engine-status").classList.add("ready"); resolve(worker); }
+      };
+      worker.onerror = () => { clearTimeout(timer); reject(new Error("Impossible de charger Stockfish dans Safari.")); };
+      worker.postMessage("uci");
+      $("engine-status").textContent = "Chargement de Stockfish…";
+    } catch (error) { reject(error); }
+  });
+  return engineReady;
+}
+
+function evalPosition(engine, fen){
+  return new Promise((resolve,reject) => {
+    let score = 0, bestmove = "";
+    const handler = event => {
+      const line = String(event.data || "");
+      const cp = line.match(/\bscore cp (-?\d+)/);
+      const mate = line.match(/\bscore mate (-?\d+)/);
+      if (cp) score = Number(cp[1]);
+      if (mate) score = Number(mate[1]) > 0 ? 10000 : -10000;
+      if (line.startsWith("bestmove")) {
+        engine.removeEventListener("message", handler);
+        bestmove = line.split(/\s+/)[1] || "";
+        resolve({score,bestmove});
+      }
+    };
+    engine.addEventListener("message", handler);
+    engine.postMessage("position fen " + fen);
+    engine.postMessage("go movetime 120");
+    setTimeout(() => { engine.removeEventListener("message", handler); reject(new Error("L'analyse a dépassé le délai prévu.")); }, 15000);
+  });
+}
+
+function uciMove(move){ return move.from + move.to + (move.promotion || ""); }
+function sanForUci(fen, uci){
+  if (!uci || uci === "(none)") return "—";
+  const board = new Chess(fen);
+  const moves = board.moves({verbose:true});
+  const found = moves.find(m => uciMove(m) === uci);
+  return found ? found.san : uci;
+}
+function classify(loss){
+  if (loss < 35) return {label:"Bon coup",kind:"good"};
+  if (loss < 90) return {label:"Imprécision",kind:"inaccuracy"};
+  if (loss < 180) return {label:"Erreur",kind:"mistake"};
+  return {label:"Gaffe",kind:"blunder"};
+}
+function resultName(g){
+  const white = (g.white || "").toLowerCase() === user;
+  const black = (g.black || "").toLowerCase() === user;
+  const won = (white && g.result === "1-0") || (black && g.result === "0-1");
+  const draw = g.result === "1/2-1/2";
+  return won ? "Victoire" : draw ? "Nulle" : "Défaite";
+}
+function labelGame(g){
+  const opponent = (g.white || "").toLowerCase() === user ? g.black : g.white;
+  return (g.date || "Date inconnue") + " · " + (opponent || "Adversaire") + " · " + resultName(g);
+}
+function refreshGamePicker(){
+  const select = $("analysis-game-select");
+  if (!select) return;
+  const games = (window.CoachApp?.getGames?.() || []).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  const previous = select.value;
+  select.innerHTML = games.length ? games.map((g,i)=>'<option value="'+esc(g.id)+'">'+esc(labelGame(g))+'</option>').join("") : '<option value="">Aucune partie importée</option>';
+  if (games.some(g=>String(g.id)===previous)) select.value = previous;
+  $("analyse-game-button").disabled = !games.length || busy;
+}
+function renderResults(g, report){
+  const counts = {good:0,inaccuracy:0,mistake:0,blunder:0};
+  report.moves.forEach(m=>counts[m.kind]++);
+  const issues = report.moves.filter(m=>m.kind!=="good").sort((a,b)=>b.loss-a.loss);
+  const score = report.moves.length ? Math.round((counts.good/report.moves.length)*100) : 0;
+  $("analysis-results").innerHTML =
+    '<div class="analysis-summary"><div><strong>'+report.moves.length+'</strong><span>coups examinés</span></div><div><strong>'+counts.inaccuracy+'</strong><span>imprécisions</span></div><div><strong>'+counts.mistake+'</strong><span>erreurs</span></div><div><strong>'+counts.blunder+'</strong><span>gaffes</span></div></div>'+
+    '<p class="analysis-verdict">'+(issues.length ? 'Les '+issues.length+' coups à revoir sont listés ci-dessous. Commence par la gaffe ou l’erreur la plus coûteuse.' : 'Aucune grosse erreur détectée dans les coups examinés. Continue à vérifier les positions critiques.')+'</p>'+
+    (issues.length ? '<div class="analysis-moves">'+issues.slice(0,15).map(m=>'<div class="analysis-move"><div><strong>'+esc(m.color==="w"?"Blancs":"Noirs")+' · '+esc(m.moveNo)+'. '+esc(m.played)+'</strong><small>Meilleur coup : '+esc(m.best)+' · perte estimée '+Math.round(m.loss)+' centipions</small></div><span class="move-tag '+m.kind+'">'+m.label+'</span></div>').join("")+'</div>' : '<div class="empty-state compact">Pas d'erreur importante détectée à cette profondeur de calcul.</div>')+
+    '<p class="small muted">Analyse Stockfish 19 Lite · '+report.depth+' recherche(s) courte(s) · '+report.covered+' demi-coups examinés. Les résultats sont une première estimation : approfondir une position peut modifier l'évaluation.</p>';
+}
+async function analyseSelectedGame(){
+  if (busy) return;
+  const games = window.CoachApp?.getGames?.() || [];
+  const id = $("analysis-game-select").value;
+  const game = games.find(g=>String(g.id)===id);
+  if (!game) { $("analysis-results").innerHTML='<div class="empty-state">Aucune partie sélectionnée.</div>'; return; }
+  if (!game.pgn) { $("analysis-results").innerHTML='<div class="empty-state">Le PGN de cette partie n'est pas disponible. Réimporte la partie depuis Chess.com pour l'analyser.</div>'; return; }
+  busy = true; $("analyse-game-button").disabled = true; $("analyse-game-button").textContent = "Analyse en cours…";
+  $("analysis-progress").hidden = false; $("analysis-results").innerHTML = "";
+  try {
+    const parsed = new Chess();
+    parsed.loadPgn(game.pgn);
+    const history = parsed.history({verbose:true});
+    if (!history.length) throw new Error("Aucun coup n'a pu être lu dans le PGN de cette partie.");
+    const engine = await getEngine();
+    const replay = new Chess(), report = {moves:[],depth:0,covered:0};
+    const maxPlies = Math.min(history.length, 80);
+    for (let i=0;i<maxPlies;i++) {
+      const move = history[i], before = replay.fen(), playedUci = uciMove(move);
+      const beforeEval = await evalPosition(engine,before);
+      const bestSan = sanForUci(before,beforeEval.bestmove);
+      replay.move({from:move.from,to:move.to,promotion:move.promotion});
+      let loss = 0;
+      if (beforeEval.bestmove && beforeEval.bestmove !== playedUci) {
+        const afterEval = await evalPosition(engine,replay.fen());
+        loss = Math.max(0, beforeEval.score + afterEval.score);
+      }
+      const category = classify(loss);
+      report.moves.push({color:move.color,moveNo:Math.floor(i/2)+1,played:move.san,best:bestSan,loss,...category});
+      report.covered = i+1;
+      $("analysis-progress-fill").style.width = Math.round((i+1)/maxPlies*100)+"%";
+      $("analysis-progress-label").textContent = "Analyse des coups : "+(i+1)+" / "+maxPlies+" demi-coups";
+    }
+    report.depth = report.moves.length;
+    game.analysis = {date:new Date().toISOString(),moves:report.moves,covered:report.covered};
+    window.CoachApp.saveGames();
+    renderResults(game,report);
+    activeGameId = id;
+    $("analysis-progress-label").textContent = "Analyse terminée.";
+  } catch(error) {
+    $("analysis-results").innerHTML = '<div class="empty-state">'+esc(error.message || "Une erreur est survenue pendant l'analyse.")+'</div>';
+    $("engine-status").textContent = worker ? "Moteur interrompu" : "Moteur indisponible";
+  } finally {
+    busy = false; $("analyse-game-button").disabled = false; $("analyse-game-button").textContent = "Analyser cette partie";
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  refreshGamePicker();
+  $("analyse-game-button").addEventListener("click",analyseSelectedGame);
+  window.addEventListener("coach:games-updated",refreshGamePicker);
+});
