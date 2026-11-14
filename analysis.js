@@ -151,7 +151,7 @@ function renderResults(g, report){
   }).join("");
   $("analysis-results").innerHTML=
     '<div class="analysis-summary"><div><strong>'+report.moves.length+'</strong><span>coups analysés</span></div><div><strong>'+counts.inaccuracy+'</strong><span>imprécisions</span></div><div><strong>'+counts.mistake+'</strong><span>erreurs</span></div><div><strong>'+counts.blunder+'</strong><span>gaffes</span></div></div>'+
-    '<p class="analysis-verdict">'+(issues.length?"Stockfish a trouvé "+issues.length+" coup(s) à revoir. Sélectionne une ligne pour afficher la position et les flèches sur l’échiquier.":"Aucune erreur importante détectée dans les coups examinés.")+'</p>'+
+    '<p class="analysis-verdict">'+(issues.length?"Stockfish a trouvé "+issues.length+" coup(s) à revoir. Fais défiler les coups : les flèches et les explications suivent automatiquement la position affichée.":"Aucune erreur importante détectée dans les coups examinés.")+'</p>'+
     '<div class="analysis-moves">'+rows+'</div>'+
     '<p class="small muted">Stockfish 19 Lite · '+report.positions.length+' positions examinées · '+report.covered+' demi-coups parcourus. Analyse indicative à profondeur limitée.</p>';
   window.CoachReview?.setAnalysis?.(report.moves,g);
