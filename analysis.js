@@ -26,7 +26,7 @@ function getEngine(){
 
 function evalPosition(engine, fen){
   return new Promise((resolve,reject) => {
-    let score = 0, bestmove = "";
+    let score = 0, bestmove = "", timer=null;
     const handler = event => {
       const line = String(event.data || "");
       const cp = line.match(/\bscore cp (-?\d+)/);
@@ -35,6 +35,7 @@ function evalPosition(engine, fen){
       if (mate) score = Number(mate[1]) > 0 ? 10000 : -10000;
       if (line.startsWith("bestmove")) {
         engine.removeEventListener("message", handler);
+        clearTimeout(timer);
         bestmove = line.split(/\s+/)[1] || "";
         resolve({score,bestmove});
       }
@@ -42,7 +43,7 @@ function evalPosition(engine, fen){
     engine.addEventListener("message", handler);
     engine.postMessage("position fen " + fen);
     engine.postMessage("go movetime 120");
-    setTimeout(() => { engine.removeEventListener("message", handler); reject(new Error("L'analyse a dépassé le délai prévu.")); }, 15000);
+    timer=setTimeout(() => { engine.removeEventListener("message", handler); reject(new Error("L'analyse a dépassé le délai prévu.")); }, 15000);
   });
 }
 
@@ -138,14 +139,25 @@ async function analyseSelectedGame(){
     renderResults(game,report);
     $("analysis-progress-label").textContent = "Analyse terminée.";
   } catch(error) {
+    engineReady=null;
+    if(worker){try{worker.terminate();}catch{} worker=null;}
     $("analysis-results").innerHTML = '<div class="empty-state">'+esc(error.message || "Une erreur est survenue pendant l'analyse.")+'</div>';
     $("engine-status").textContent = worker ? "Moteur interrompu" : "Moteur indisponible";
   } finally {
-    busy = false; $("analyse-game-button").disabled = false; $("analyse-game-button").textContent = "Analyser cette partie";
+    busy = false; refreshGamePicker(); $("analyse-game-button").disabled = false; $("analyse-game-button").textContent = "Analyser cette partie";
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("coach:analyze-game",event=>{
+  const id=event.detail?.gameId, select=$("analysis-game-select");
+  document.querySelector('[data-tab="training"]')?.click();
+  refreshGamePicker();
+  if(select&&id!==undefined)select.value=String(id);
+  const chosen=(window.CoachApp?.getGames?.()||[]).find(g=>String(g.id)===String(select?.value));
+  if(!chosen){$("analysis-results").innerHTML='<div class="empty-state">Cette partie est introuvable dans les données de cet appareil.</div>';return;}
+  analyseSelectedGame();
+});
+document.addEventListener("DOMContentLoaded",()=>{
   refreshGamePicker();
   $("analyse-game-button").addEventListener("click",analyseSelectedGame);
   window.addEventListener("coach:games-updated",refreshGamePicker);
