@@ -62,7 +62,7 @@ function renderDetail(g){
 }
 function startExercise(group,variant){
  const game=variant.games.slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""))[0];
- let line=variant.book?.moves?.slice()||gameMoves(game||{});
+ let line=(variant.book?.moves?.slice()||gameMoves(game||{})).slice(0,14);
  if(!line.length){$("opening-practice").innerHTML='<p class="muted">La suite de coups n’est pas disponible pour cette variante.</p>';return;}
  const filter=$("opening-color-filter").value;
  const whiteCount=variant.games.filter(g=>sideOf(g)==="white").length,blackCount=variant.games.length-whiteCount;
