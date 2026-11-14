@@ -150,10 +150,17 @@ function isBrilliantSacrifice(fen,uci,winLoss,beforeEval,afterEval){
   }catch{return false;}
 }
 function gameAccuracyFromMoves(moves){
-  const values=(moves||[]).map(m=>moveAccuracyFromWinLoss(m.winLossPercent)).filter(Number.isFinite);
-  if(!values.length)return null;
-  const safe=values.map(v=>Math.max(0.1,v));
-  return Math.round(safe.length/safe.reduce((sum,v)=>sum+1/v,0));
+  const rows=(moves||[]).filter(m=>Number.isFinite(Number(m.winLossPercent))).map(m=>({accuracy:moveAccuracyFromWinLoss(m.winLossPercent),winBefore:Number(m.winPercentBefore)||50}));
+  if(!rows.length)return null;
+  const size=Math.max(2,Math.min(8,Math.round(rows.length/10))),weights=rows.map((row,i)=>{
+    const window=rows.slice(Math.max(0,Math.min(i-size+1,rows.length-size)),Math.max(0,Math.min(i-size+1,rows.length-size))+size);
+    const mean=window.reduce((sum,x)=>sum+x.winBefore,0)/window.length;
+    const deviation=Math.sqrt(window.reduce((sum,x)=>sum+(x.winBefore-mean)**2,0)/window.length);
+    return Math.max(.5,Math.min(12,deviation));
+  });
+  const weighted=rows.reduce((sum,row,i)=>sum+row.accuracy*weights[i],0)/weights.reduce((sum,w)=>sum+w,0);
+  const harmonic=rows.length/rows.reduce((sum,row)=>sum+1/Math.max(.1,row.accuracy),0);
+  return Math.round((weighted+harmonic)/2);
 }
 function resultName(g){
   const white = (g.white || "").toLowerCase() === user;
@@ -244,10 +251,13 @@ async function analyseSelectedGame(gameIdOverride,options={}){
       const afterEval=await evalPosition(engine,replay.fen(),movetime);
       const moverSign=move.color==="w"?1:-1;
       const loss=beforeEval.bestmove===playedUci?0:Math.max(0,moverSign*(beforeEval.scoreWhite-afterEval.scoreWhite));
-      const winLossPercent=Math.max(0,winPercent(beforeEval.scoreWhite*moverSign)-winPercent(afterEval.scoreWhite*moverSign));
+      const winPercentBefore=winPercent(beforeEval.scoreWhite*moverSign);
+      const winLossPercent=Math.max(0,winPercentBefore-winPercent(afterEval.scoreWhite*moverSign));
       const quality=classify(winLossPercent,playedUci===beforeEval.bestmove);
+      const previousOpponentMove=report.positionDetails[report.positionDetails.length-1];
+      if(move.color===userSide&&previousOpponentMove&&previousOpponentMove.color!==userSide&&previousOpponentMove.winLossPercent>=10&&winLossPercent>=2){quality.label="Occasion manquée";quality.kind="miss";}
       if(playedUci===beforeEval.bestmove&&isBrilliantSacrifice(beforeFen,playedUci,winLossPercent,beforeEval,afterEval)){quality.label="Coup brillant";quality.kind="brilliant";}
-      Object.assign(detail,{afterEvalWhite:afterEval.scoreWhite,loss,winLossPercent,...quality});
+      Object.assign(detail,{afterEvalWhite:afterEval.scoreWhite,loss,winPercentBefore,winLossPercent,...quality});
       report.covered=i+1;
       report.depth=Math.max(report.depth,beforeEval.depth||0);
       report.positions.push(afterEval.scoreWhite);
