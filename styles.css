@@ -67,3 +67,6 @@ html,body,button,a,input,select{touch-action:manipulation}
  .review-action{align-items:stretch;flex-direction:column}
  .review-action .primary-button{width:100%}
 }
+
+/* Évite le zoom par double-tape sur l'échiquier sans désactiver le zoom par pincement. */
+.replay-board,.replay-square,.replay-controls{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
