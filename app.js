@@ -67,26 +67,11 @@ function drawOpeningTable(){
 }
 function renderTraining(){
   const losses=games.filter(g=>outcome(g)==="loss").sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-  const openings=groupOpenings(games);
-  $("training-losses").textContent=losses.length;
-  const analyzed=games.filter(g=>!g.analysis?.partial&&g.analysis?.accuracy!==null&&g.analysis?.accuracy!==undefined&&Number.isFinite(Number(g.analysis?.accuracy)));
+  const analyzed=games.filter(g=>!g.analysis?.partial&&g.analysis?.accuracy!==null&&g.analysis?.accuracy!==undefined&&Number.isFinite(Number(g.analysis.accuracy)));
   const averageAccuracy=analyzed.length?analyzed.reduce((sum,g)=>sum+Number(g.analysis.accuracy),0)/analyzed.length:null;
+  const lossNode=$("training-losses");if(lossNode)lossNode.textContent=losses.length;
   const accuracyNode=$("training-accuracy");if(accuracyNode)accuracyNode.textContent=averageAccuracy===null?"—":Math.round(averageAccuracy)+" %";
   const accuracyCount=$("training-accuracy-count");if(accuracyCount)accuracyCount.textContent=analyzed.length+" partie(s) entièrement analysée(s)";
-  const byTime=new Map();games.forEach(g=>{const key=g.timeControl||"Cadence inconnue";if(!byTime.has(key))byTime.set(key,[]);byTime.get(key).push(g)});
-  const weak=[...byTime.entries()].map(([name,list])=>{const w=list.filter(g=>outcome(g)==="win").length,d=list.filter(g=>outcome(g)==="draw").length,l=list.filter(g=>outcome(g)==="loss").length;return {name,count:w+d+l,score:(w+d/2)/(w+d+l||1)*100}}).filter(x=>x.count>=4).sort((a,b)=>a.score-b.score)[0];
-  $("training-weak-time").textContent=weak?weak.name:"À confirmer"; 
-  const tips=[];
-  if(!games.length)tips.push("Importe tes parties Chess.com pour lancer le diagnostic.");
-  else {
-    if(weak)tips.push("Cadence prioritaire : "+weak.name+". Ton score y est de "+Math.round(weak.score)+" % sur "+weak.count+" parties. On commencera par comparer tes défaites et tes victoires dans cette cadence.");
-    if(losses.length)tips.push("Revue de parties : commence par tes "+Math.min(5,losses.length)+" défaites les plus récentes. Note à chaque fois le moment où la position t'a échappé et ce que tu avais calculé.");
-    const weakOpening=openings.filter(x=>x.count>=3).sort((a,b)=>a.score-b.score)[0];
-    if(weakOpening)tips.push("Ouverture à revoir : "+weakOpening.name+". Ton score est de "+Math.round(weakOpening.score)+" % en "+weakOpening.count+" parties. Compare les premiers coups de tes parties gagnées et perdues.");
-    if(!losses.length)tips.push("Tu n'as pas de défaite importée : on pourra travailler les ouvertures et les positions critiques dès que l'analyse moteur sera disponible.");
-    tips.push("Analyse moteur disponible : lance Stockfish depuis une partie pour comparer chacun de tes coups au meilleur choix et afficher les positions à corriger.");
-  }
-  $("training-plan").innerHTML=tips.map((t,i)=>'<div class="recommendation-item"><span class="recommendation-number">0'+(i+1)+'</span><p>'+escapeHtml(t)+'</p></div>').join("");
   $("training-games").innerHTML=losses.length?losses.slice(0,5).map(g=>'<div class="game-row"><div><div class="game-opponent">Défaite contre '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="game-meta">'+formatDate(g.date)+' · '+escapeHtml(g.timeControl||"Cadence inconnue")+(openingName(g)?" · "+escapeHtml(openingName(g)):"")+'</div></div>'+'<button type="button" class="lesson-launch" data-open-game="'+escapeHtml(g.id)+'">Analyser cette partie dans le coach →</button>'+'</div>').join(""):'<div class="empty-state">Aucune défaite enregistrée dans les parties importées.</div>';
 }
 async function syncChessCom(){
