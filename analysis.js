@@ -143,16 +143,9 @@ function renderResults(g, report){
   const counts={good:0,inaccuracy:0,mistake:0,blunder:0};
   report.moves.forEach(m=>counts[m.kind]++);
   const issues=report.moves.filter(m=>m.kind!=="good");
-  const ordered=[...report.moves].sort((a,b)=>a.ply-b.ply);
-  const rows=ordered.map(m=>{
-    const side=m.color==="w"?"Blancs":"Noirs";
-    const note=m.loss>0?"perte estimée "+Math.round(m.loss)+" centipions":"coup conforme au meilleur choix";
-    return '<button type="button" class="analysis-move analysis-move-button" data-analysis-ply="'+m.ply+'"><span class="analysis-move-main"><strong>'+esc(side)+' · '+esc(m.moveNo)+'. '+esc(m.played)+'</strong><small>Meilleur coup : <b>'+esc(m.best)+'</b> · '+esc(note)+'</small></span><span class="move-tag '+m.kind+'">'+m.label+'</span></button>';
-  }).join("");
   $("analysis-results").innerHTML=
     '<div class="analysis-summary"><div><strong>'+report.moves.length+'</strong><span>coups analysés</span></div><div><strong>'+counts.inaccuracy+'</strong><span>imprécisions</span></div><div><strong>'+counts.mistake+'</strong><span>erreurs</span></div><div><strong>'+counts.blunder+'</strong><span>gaffes</span></div></div>'+
-    '<p class="analysis-verdict">'+(issues.length?"Stockfish a trouvé "+issues.length+" coup(s) à revoir. Fais défiler les coups : les flèches et les explications suivent automatiquement la position affichée.":"Aucune erreur importante détectée dans les coups examinés.")+'</p>'+
-    '<div class="analysis-moves">'+rows+'</div>'+
+    '<p class="analysis-verdict">'+(issues.length?"Stockfish a trouvé "+issues.length+" coup(s) à revoir. Les symboles sur l’échiquier indiquent la qualité de chaque coup lorsque tu le fais défiler.":"Aucune erreur importante détectée dans les coups examinés.")+'</p>'+
     '<p class="small muted">Stockfish 19 Lite · '+report.positions.length+' positions examinées · '+report.covered+' demi-coups parcourus. Analyse indicative à profondeur limitée.</p>';
   window.CoachReview?.setAnalysis?.(report.moves,g);
 }
@@ -243,6 +236,6 @@ function openGameInCoach(gameId){
 window.addEventListener("coach:analyze-game",event=>openGameInCoach(event.detail?.gameId));
 $("analyse-game-button").addEventListener("click",()=>analyseSelectedGame());
 window.addEventListener("coach:games-updated",refreshGamePicker);
-document.addEventListener("click",event=>{const row=event.target.closest("[data-analysis-ply]");if(!row)return;const ply=Number(row.dataset.analysisPly);const game=(window.CoachApp?.getGames?.()||[]).find(g=>String(g.id)===$("analysis-game-select").value);const move=game?.analysis?.moves?.find(m=>m.ply===ply);if(move)window.CoachReview?.showAnalysisMove?.(move);});
+
 window.CoachAnalysis={openGame:openGameInCoach,analyze:gameId=>openGameInCoach(gameId)};
 refreshGamePicker();
