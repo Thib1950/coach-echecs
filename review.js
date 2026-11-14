@@ -2,7 +2,7 @@ import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
 const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let active=null,moves=[],index=0,analysisMoves=[],activeAnalysisMove=null,variationIndex=0;
 let ecoOpeningPromise=null;
-let freeBoard=null,freeStartFen="",freeSelected=null,freeRedo=[];
+let freeBoard=null,freeStartFen="",freeSelected=null,freeRedo=[],freeAnalysis=null,freeAnalysisError="",freeLastMove="",freeAnalysisSeq=0;
 const manualHighlights=new Set();
 const glyph={wk:"♔",wq:"♕",wr:"♖",wb:"♗",wn:"♘",wp:"♙",bk:"♚",bq:"♛",br:"♜",bb:"♝",bn:"♞",bp:"♟"};
 function arrow(from,to,color,dashed=false){
@@ -26,7 +26,8 @@ function ensureOpeningName(game){
 function coachMessage(detail){
  if(!detail)return {title:"Position en cours",body:"Je vérifie les possibilités de cette position. Le meilleur coup et son idée apparaîtront ici.",tip:""};
  const userSide=((active?.white||"").toLowerCase()==="gone_1950"?"w":"b");
- if(detail.color!==userSide){return {title:"Coup adverse",body:"Ton adversaire vient de jouer "+(detail.played||"un coup")+". Regarde les menaces créées, puis choisis une réponse active qui développe tes pièces et protège ton roi.",tip:""};}
+ if(detail.contextOpponent){const opponentLoss=Math.max(0,Number(detail.opponentMove?.loss)||0);const opponentText=opponentLoss<2?"Son coup est précis et maintient l’équilibre.":opponentLoss<10?"Son coup manque un peu de précision : tu peux chercher à améliorer ta position.":opponentLoss<20?"Son coup est une imprécision qui te laisse une occasion de prendre l’initiative.":"Son coup est une erreur : profite-en pour reprendre l’initiative.";return {title:"Après le coup adverse",body:opponentText+(detail.best?" La réponse conseillée ici est "+detail.best+".":" Cherche une réponse qui développe tes pièces et protège ton roi."),tip:""};}
+ if(detail.color!==userSide){return {title:"Coup adverse",body:"Ton adversaire vient de jouer "+(detail.played||"un coup")+".",tip:""};}
  if(detail.loss===null||detail.loss===undefined){const openingTip=(active&&userSide==="b"&&detail.ply===1)?historicalCounterOpening():null;return {title:openingTip?"Ta meilleure réponse historique":"À toi de jouer",body:openingTip?("Contre ce premier coup, dans tes parties avec les Noirs, ton meilleur résultat vient de "+openingTip.name+" : "+openingTip.rate+" % de victoires sur "+openingTip.count+" partie(s)."):(detail.best?"Le moteur recommande "+detail.best+". Cherche ce coup sur l’échiquier, puis regarde l’idée derrière le développement.":"Trouve un coup qui développe tes pièces et contrôle le centre."),tip:""};}
  const loss=Math.max(0,Number(detail.loss)||0);
  const bestBoard=new Chess(detail.fen);
@@ -74,9 +75,9 @@ function coachMessage(detail){
  // Même pendant la théorie, le coach explique le coup et son idée au lieu de répéter le nom de l’ouverture.
  let body;
  if(loss<15){
-  body=detail.bestUci===detail.playedUci?"Tu as trouvé le meilleur coup. "+idea:"Ton coup "+played+" reste jouable, mais le meilleur choix était "+(detail.best||"le coup indiqué")+". "+idea;
+  body=detail.bestUci===detail.playedUci?"Très bon choix. "+idea:"Tu as joué "+played+". "+idea;
  }else{
-  body="Le meilleur coup était "+(detail.best||"le coup indiqué")+". "+idea+" Ton coup "+played+" laisse une réponse plus forte à l’adversaire."+concreteReply;
+  body="Ton coup "+played+" laisse une réponse plus forte à l’adversaire. "+idea+concreteReply;
  }
  return {title:loss<=0.01?"Coup parfait":loss<15?"Meilleur coup":detail.label||"À corriger",body,tip:"Les cases encadrées montrent la pièce à déplacer et sa destination."};
 }
@@ -142,7 +143,7 @@ function render(){
   cells+='<div class="'+classes.join(" ")+'" data-square="'+square+'">'+(p?'<img class="chess-piece-image" src="https://lichess1.org/assets/piece/cburnett/'+(p.color==="w"?"w":"b")+p.type.toUpperCase()+'.svg" alt="'+glyph[p.color+p.type]+'">':"")+rankLabel+fileLabel+badge+'</div>';
  }));
  let arrows="";
- const arrowDetail=freeBoard?null:(variationIndex===0?detail:null);
+ const arrowDetail=freeBoard?(freeAnalysis?{bestUci:freeAnalysis.bestmove,playedUci:freeLastMove,kind:"good"}:null):(variationIndex===0?detail:null);
  if(arrowDetail){
   const best=arrowDetail.bestUci,played=arrowDetail.playedUci;
   const colors={brilliant:"#42b7ff",great:"#54a9f5",best:"#72cf79",excellent:"#82c96b",good:"#82c96b",book:"#aeb8c4",inaccuracy:"#f0c34e",mistake:"#f39a42",blunder:"#ef5b62",miss:"#df75c8"};
@@ -154,7 +155,7 @@ function render(){
  ensureOpeningName(active);
  const openingLabel=frenchOpeningName(active?.opening||active?.displayOpening||"").trim()||(active?.eco?"Ouverture en cours d’identification":"Ouverture non identifiée");
  const label=freeBoard?"Mode libre · "+freeBoard.turn().toUpperCase()+" joue":openingLabel;
- const cp=freeBoard?null:(variationIndex?null:(detail?.evalWhite??active?.analysis?.positions?.[Math.min(index,(active?.analysis?.positions?.length||1)-1)]??null));
+ const cp=freeBoard?(freeAnalysis?.scoreWhite??null):(variationIndex?null:(detail?.evalWhite??active?.analysis?.positions?.[Math.min(index,(active?.analysis?.positions?.length||1)-1)]??null));
  const clamped=Math.max(-1000,Math.min(1000,Number(cp)||0));
  const whitePct=100/(1+Math.exp(-0.00368208*clamped));
  const evalMarkup='<div class="eval-column"><strong class="eval-score">'+formatEval(cp)+'</strong><div class="eval-bar-track" aria-label="Évaluation du point de vue des Blancs"><div class="eval-black" style="height:'+(100-whitePct)+'%"></div><div class="eval-white" style="height:'+whitePct+'%"></div></div><small class="eval-perspective">Blancs</small></div>';
@@ -163,9 +164,10 @@ function render(){
  const lastMoveDetail=active?.analysis?.positionDetails?.[index-1]||null;
  const responseDetail=active?.analysis?.positionDetails?.[index]||null;
  const userSide=((active?.white||"").toLowerCase()==="gone_1950"?"w":"b");
- const coachDetail=!freeBoard&&index>0?(activeAnalysisMove||(lastMoveDetail?.color!==userSide&&responseDetail?responseDetail:lastMoveDetail)):null;
+ const coachDetail=!freeBoard&&index>0?(activeAnalysisMove||(lastMoveDetail?.color!==userSide&&responseDetail?{...responseDetail,contextOpponent:true,opponentMove:lastMoveDetail}:lastMoveDetail)):null;
  const coach=coachMessage(coachDetail);
- const coachPanel='<aside class="review-side"><section class="coach-card"><div class="coach-avatar" aria-hidden="true">♞</div><div class="coach-identity"><strong>Ton coach</strong><span>'+(freeBoard?"Partie libre":"Analyse du coup")+'</span></div><div class="coach-message"><strong>'+esc(freeBoard?"À toi de jouer":(coachDetail?coach.title:"Choisis un coup"))+'</strong>'+(freeBoard?"":(coachDetail?'<p>'+esc(coach.body)+'</p>':'<p>Avance dans la partie pour afficher l’explication du coup et la meilleure idée.</p>'))+'</div></section></aside>';
+ const freeCoachText=freeAnalysis?"Stockfish conseille "+(freeAnalysis.bestSan||"un coup actif")+" pour la suite de la position.":freeAnalysisError||"Analyse de la position en cours…";
+ const coachPanel='<aside class="review-side"><section class="coach-card"><div class="coach-avatar" aria-hidden="true">♞</div><div class="coach-identity"><strong>Ton coach</strong><span>'+(freeBoard?"Analyse en direct":"Analyse du coup")+'</span></div><div class="coach-message"><strong>'+esc(freeBoard?(freeAnalysis?"Position analysée":"Analyse en cours"): (coachDetail?coach.title:"Choisis un coup"))+'</strong>'+(freeBoard?'<p>'+esc(freeCoachText)+'</p>':(coachDetail?'<p>'+esc(coach.body)+'</p>':'<p>Avance dans la partie pour afficher l’explication du coup et la meilleure idée.</p>'))+'</div></section></aside>';
  const controls=freeBoard
   ?'<div class="replay-controls free-navigation"><button class="icon-nav" data-free-reset="1" title="Revenir à la position de départ" aria-label="Revenir à la position de départ">|◀</button><button class="icon-nav" data-free-undo="1" '+(freeBoard.history().length?"":"disabled")+' title="Annuler le coup" aria-label="Annuler le coup">◀</button><button class="icon-nav" data-free-redo="1" '+(freeRedo.length?"":"disabled")+' title="Rejouer le coup annulé" aria-label="Rejouer le coup annulé">▶</button><button class="review-free-exit" data-free-exit="1">Reprendre la relecture</button></div>'
   :'<div class="replay-controls"><button class="icon-nav" data-review-start="1" title="Revenir au début" aria-label="Revenir au début"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M19 6 8 12l11 6z"/></svg></button><button class="icon-nav" data-review-step="-1" '+(index===0?"disabled":"")+' title="Coup précédent" aria-label="Coup précédent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button><button class="icon-nav" data-review-step="1" '+(index===moves.length?"disabled":"")+' title="Coup suivant" aria-label="Coup suivant"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button><button class="icon-nav" data-review-end="1" title="Aller à la fin" aria-label="Aller à la fin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5v14M5 6l11 6-11 6z"/></svg></button><button class="review-free-start" data-free-start="1">Tester cette position</button></div>';
@@ -179,19 +181,19 @@ function open(id){
  const game=(window.CoachApp?.getGames?.()||[]).find(g=>String(g.id)===String(id));
  if(!game){$("game-replay-area").innerHTML='<div class="empty-state">Partie introuvable dans les données de cet appareil.</div>';return false;}
  if(!game.pgn){$("game-replay-area").innerHTML='<div class="empty-state">Le PGN de cette partie est absent. Réimporte-la pour la rejouer.</div>';return false;}
- try{const c=new Chess();c.loadPgn(game.pgn);moves=c.history({verbose:true});if(!moves.length)throw new Error("Aucun coup lisible dans le PGN.");active=game;index=0;analysisMoves=game.analysis?.moves||[];activeAnalysisMove=null;variationIndex=0;freeBoard=null;freeSelected=null;freeRedo=[];manualHighlights.clear();const s=$("analysis-game-select");if(s)s.value=String(game.id);$("analysis-results").innerHTML='<div class="empty-state compact">La relecture est prête. Parcours les coups, puis lance l’analyse moteur pour obtenir les meilleurs coups.</div>';$("lesson-area").innerHTML="";render();$("active-game-review")?.scrollIntoView({behavior:"smooth",block:"start"});return true;}
+ try{const c=new Chess();c.loadPgn(game.pgn);moves=c.history({verbose:true});if(!moves.length)throw new Error("Aucun coup lisible dans le PGN.");active=game;index=0;analysisMoves=game.analysis?.moves||[];activeAnalysisMove=null;variationIndex=0;freeBoard=null;freeSelected=null;freeRedo=[];freeAnalysis=null;freeAnalysisError="";freeLastMove="";freeAnalysisSeq++;manualHighlights.clear();const s=$("analysis-game-select");if(s)s.value=String(game.id);$("analysis-results").innerHTML='<div class="empty-state compact">La relecture est prête. Parcours les coups, puis lance l’analyse moteur pour obtenir les meilleurs coups.</div>';$("lesson-area").innerHTML="";render();$("active-game-review")?.scrollIntoView({behavior:"smooth",block:"start"});return true;}
  catch(e){$("game-replay-area").innerHTML='<div class="empty-state">Impossible de lire cette partie : '+esc(e.message)+'</div>';return false;}
 }
 function setAnalysis(list,game){
  if(game)active=game;
  analysisMoves=list||[];
- activeAnalysisMove=null;variationIndex=0;freeBoard=null;freeSelected=null;freeRedo=[];manualHighlights.clear();
+ activeAnalysisMove=null;variationIndex=0;freeBoard=null;freeSelected=null;freeRedo=[];freeAnalysis=null;freeAnalysisError="";freeLastMove="";freeAnalysisSeq++;manualHighlights.clear();
  if(active)active.analysis=active.analysis||{};
  if(active)index=0;
  render();
 }
 function showAnalysisMove(move){
- activeAnalysisMove=move;index=move.ply;variationIndex=0;freeBoard=null;freeSelected=null;freeRedo=[];render();
+ activeAnalysisMove=move;index=move.ply;variationIndex=0;freeBoard=null;freeSelected=null;freeRedo=[];freeAnalysis=null;freeAnalysisError="";freeLastMove="";freeAnalysisSeq++;render();
  $("active-game-review")?.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 let moveAudioContext=null;
@@ -209,6 +211,12 @@ function playMoveSound(direction,capture=false){
   source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);source.start();source.stop(ctx.currentTime+duration);
  }catch(error){console.debug("Son des coups indisponible",error);}
 }
+async function analyzeFreePosition(){
+ if(!freeBoard)return;const seq=++freeAnalysisSeq;freeAnalysis=null;freeAnalysisError="Stockfish analyse la position…";render();
+ try{if(!window.CoachAnalysis?.analyzePosition)throw new Error("Le moteur d’analyse n’est pas disponible.");const result=await window.CoachAnalysis.analyzePosition(freeBoard.fen());if(seq!==freeAnalysisSeq||!freeBoard)return;freeAnalysis=result;freeAnalysisError="";}
+ catch(error){if(seq!==freeAnalysisSeq)return;freeAnalysisError=error.message||"L’analyse de cette position a échoué.";}
+ if(seq===freeAnalysisSeq&&freeBoard)render();
+}
 function handleFreeSquare(square){
  const sq=square.dataset.square,piece=freeBoard.get(sq);
  if(!freeSelected){
@@ -218,7 +226,7 @@ function handleFreeSquare(square){
  if(piece&&piece.color===freeBoard.turn()){freeSelected=sq;render();return;}
  const legal=freeBoard.moves({square:freeSelected,verbose:true}).find(m=>m.to===sq);
  if(!legal){freeSelected=null;render();return;}
- try{freeBoard.move({from:freeSelected,to:sq,promotion:"q"});freeRedo=[];freeSelected=null;playMoveSound(1,!!legal.captured);render();}
+ try{freeBoard.move({from:freeSelected,to:sq,promotion:"q"});freeRedo=[];freeSelected=null;freeLastMove=legal.from+legal.to+(legal.promotion||"");playMoveSound(1,!!legal.captured);analyzeFreePosition();}
  catch{freeSelected=null;render();}
 }
 document.addEventListener("click",e=>{
@@ -227,12 +235,12 @@ document.addEventListener("click",e=>{
  if(e.target.closest("[data-free-start]")){
   const displayed=new Chess();if(currentDetail()&&variationIndex>0){displayed.load(currentDetail().fen);for(const uci of (currentDetail().pvUci||[]).slice(0,variationIndex))displayed.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]});}
   else{for(let i=0;i<index;i++){const m=moves[i];displayed.move({from:m.from,to:m.to,promotion:m.promotion});}}
-  freeStartFen=displayed.fen();freeBoard=displayed;freeSelected=null;freeRedo=[];render();return;
+  freeStartFen=displayed.fen();freeBoard=displayed;freeSelected=null;freeRedo=[];freeAnalysis=null;freeAnalysisError="";freeLastMove="";analyzeFreePosition();return;
  }
- if(e.target.closest("[data-free-undo]")&&freeBoard){const undone=freeBoard.undo();if(undone)freeRedo.push({from:undone.from,to:undone.to,promotion:undone.promotion});freeSelected=null;render();return;}
- if(e.target.closest("[data-free-reset]")&&freeBoard){freeBoard=new Chess(freeStartFen);freeRedo=[];freeSelected=null;render();return;}
- if(e.target.closest("[data-free-redo]")&&freeBoard&&freeRedo.length){const m=freeRedo.pop();freeBoard.move(m);freeSelected=null;render();return;}
- if(e.target.closest("[data-free-exit]")){freeBoard=null;freeRedo=[];freeSelected=null;render();return;}
+ if(e.target.closest("[data-free-undo]")&&freeBoard){const undone=freeBoard.undo();if(undone)freeRedo.push({from:undone.from,to:undone.to,promotion:undone.promotion});freeSelected=null;freeLastMove="";analyzeFreePosition();return;}
+ if(e.target.closest("[data-free-reset]")&&freeBoard){freeBoard=new Chess(freeStartFen);freeRedo=[];freeSelected=null;freeLastMove="";analyzeFreePosition();return;}
+ if(e.target.closest("[data-free-redo]")&&freeBoard&&freeRedo.length){const m=freeRedo.pop();freeBoard.move(m);freeSelected=null;freeLastMove=m.from+m.to+(m.promotion||"");analyzeFreePosition();return;}
+ if(e.target.closest("[data-free-exit]")){freeBoard=null;freeRedo=[];freeSelected=null;freeAnalysis=null;freeAnalysisError="";freeLastMove="";freeAnalysisSeq++;render();return;}
  if(e.target.closest("[data-clear-highlights]")){manualHighlights.clear();render();return;}
  const square=e.target.closest(".replay-square[data-square]");
  if(square&&active){if(freeBoard){handleFreeSquare(square);return;}const name=square.dataset.square;if(manualHighlights.has(name))manualHighlights.delete(name);else manualHighlights.add(name);render();return;}
