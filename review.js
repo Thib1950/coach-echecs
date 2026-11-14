@@ -8,7 +8,7 @@ function arrow(from,to,color,dashed=false){
  if(!from||!to)return "";
  const x1=(from.charCodeAt(0)-96)*12.5-6.25,y1=(8-Number(from[1]))*12.5+6.25;
  const x2=(to.charCodeAt(0)-96)*12.5-6.25,y2=(8-Number(to[1]))*12.5+6.25;
- return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+color+'" stroke-width="2.3" stroke-linecap="round" opacity=".95" '+(dashed?'stroke-dasharray="3 2"':'')+' marker-end="url(#'+(dashed?'playedArrow':'bestArrow')+')" />';
+ return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+color+'" stroke-width="1.35" stroke-linecap="round" opacity=".95" '+(dashed?'stroke-dasharray="3 2"':'')+' marker-end="url(#'+(dashed?'playedArrow':'bestArrow')+')" />';
 }
 function formatEval(cp){
  if(cp==null||!Number.isFinite(Number(cp)))return "—";
@@ -84,15 +84,16 @@ function render(){
  const legalMoves=freeBoard&&freeSelected?freeBoard.moves({square:freeSelected,verbose:true}):[];
  const legalTargets=new Map(legalMoves.map(m=>[m.to,m.captured?"capture":"move"]));
  const moveDetail=!freeBoard?(activeAnalysisMove||(index>0?(active?.analysis?.positionDetails?.[index-1]||null):null)):null;
- const moveBadge=moveDetail?(()=>{const symbol=moveDetail.bestUci===moveDetail.playedUci?"★":({perfect:"✓",best:"★",brilliant:"!!",good:"✓",inaccuracy:"?!",mistake:"?",blunder:"??"}[moveDetail.kind]||"✓");const label=moveDetail.label||"Bon coup";return {symbol,label,kind:moveDetail.kind,square:moveDetail.playedUci?.slice(2,4)};})():null;
+ const moveBadge=moveDetail?(()=>{const symbol=({brilliant:"!!",great:"!",best:"★",excellent:"👍",good:"✓",book:"▤",inaccuracy:"?!",mistake:"?",miss:"×",blunder:"??"}[moveDetail.kind]||"✓");const label=moveDetail.label||"Bon coup";return {symbol,label,kind:moveDetail.kind,square:moveDetail.playedUci?.slice(2,4)};})():null;
  const ranks=orientation==="white"?[8,7,6,5,4,3,2,1]:[1,2,3,4,5,6,7,8];
  const files=orientation==="white"?["a","b","c","d","e","f","g","h"]:["h","g","f","e","d","c","b","a"];
  let cells="";
  ranks.forEach((rank,r)=>files.forEach((file,f)=>{
   const square=file+rank,p=board.get(square),light=((rank-1+(file.charCodeAt(0)-97))%2)===1;
   const classes=["replay-square",light?"light":"dark"];
-  if(!freeBoard&&detail&&variationIndex===0&&detail.bestUci?.slice(0,2)===square)classes.push("coach-highlight-from");
-  if(!freeBoard&&detail&&variationIndex===0&&detail.bestUci?.slice(2,4)===square)classes.push("coach-highlight");
+  const tacticalHighlight=!freeBoard&&detail&&variationIndex===0&&(detail.bestCheck||detail.bestCapture||detail.playedCheck||detail.playedCapture);
+  if(tacticalHighlight&&detail.bestUci?.slice(0,2)===square)classes.push("coach-highlight-from");
+  if(tacticalHighlight&&detail.bestUci?.slice(2,4)===square)classes.push("coach-highlight");
   if(pvSquares.includes(square))classes.push("pv-highlight");
   if(manualHighlights.has(square))classes.push("manual-highlight");
   if(selectedSquares.includes(square))classes.push("free-selected");
@@ -104,9 +105,12 @@ function render(){
  }));
  let arrows="";
  const arrowDetail=freeBoard?null:(variationIndex===0?detail:null);
- if(arrowDetail){
+ if(arrowDetail&&["brilliant","great","inaccuracy","mistake","blunder","miss"].includes(arrowDetail.kind)){
   const best=arrowDetail.bestUci,played=arrowDetail.playedUci;
-  arrows='<svg class="board-arrows '+(orientation==="black"?"rotated":"")+'" viewBox="0 0 100 100" aria-hidden="true"><defs><marker id="bestArrow" markerWidth="5" markerHeight="5" refX="3.5" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 z" fill="#9be564"/></marker><marker id="playedArrow" markerWidth="5" markerHeight="5" refX="3.5" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 z" fill="#ffb45e"/></marker></defs>'+arrow(best?.slice(0,2),best?.slice(2,4),"#9be564")+(played&&played!==best?arrow(played.slice(0,2),played.slice(2,4),"#ffb45e",true):"")+'</svg>';
+  const colors={brilliant:"#42b7ff",great:"#54a9f5",inaccuracy:"#f0c34e",mistake:"#f39a42",blunder:"#ef5b62",miss:"#df75c8"};
+  const playedColor=colors[arrowDetail.kind]||"#f39a42";
+  const bestColor=arrowDetail.kind==="brilliant"?"#42b7ff":"#72cf79";
+  arrows='<svg class="board-arrows '+(orientation==="black"?"rotated":"")+'" viewBox="0 0 100 100" aria-hidden="true"><defs><marker id="bestArrow" markerWidth="3.6" markerHeight="3.6" refX="2.8" refY="1.8" orient="auto"><path d="M0,0 L3.6,1.8 L0,3.6 z" fill="'+bestColor+'"/></marker><marker id="playedArrow" markerWidth="3.6" markerHeight="3.6" refX="2.8" refY="1.8" orient="auto"><path d="M0,0 L3.6,1.8 L0,3.6 z" fill="'+playedColor+'"/></marker></defs>'+arrow(best?.slice(0,2),best?.slice(2,4),bestColor)+(played&&played!==best?arrow(played.slice(0,2),played.slice(2,4),playedColor,true):"")+'</svg>';
  }
  const last=index?moves[index-1]:null;
  const label=freeBoard?"Mode libre · "+freeBoard.turn().toUpperCase()+" joue":(variationIndex?"Variante · "+variationIndex+" coup(s) joué(s)":(detail&&detail.played?"Coup "+(Math.floor(detail.ply/2)+1)+" · "+detail.played:(last?("Après le coup "+Math.ceil(index/2)+" · "+last.san):"Position initiale")));
