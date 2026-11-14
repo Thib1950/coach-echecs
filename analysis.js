@@ -14,12 +14,13 @@ function getEngine(){
       const timer = setTimeout(() => reject(new Error("Stockfish n’a pas répondu après 60 secondes. Vérifie la connexion puis réessaie.")), 60000);
       worker.onmessage = event => {
         const line = String(event.data || "");
-        if (line.indexOf("ENGINE_FATAL") === 0 || line.indexOf("ENGINE_ABORT") === 0 || line.indexOf("ENGINE_ERROR") === 0) {
+        if (line.indexOf("ENGINE_FATAL") === 0) {
           clearTimeout(timer);
           reject(new Error("Stockfish : " + line.replace(/^ENGINE_(FATAL|ABORT|ERROR)\\s*/, "")));
           return;
         }
         if (line === "uciok") worker.postMessage("isready");
+        if (line.indexOf("ENGINE_LOG") === 0) console.warn(line.slice(11));
         if (line === "readyok") { clearTimeout(timer); $("engine-status").textContent = "Stockfish prêt"; $("engine-status").classList.add("ready"); resolve(worker); }
       };
       worker.onerror = event => {
