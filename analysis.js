@@ -296,5 +296,16 @@ function openGameInCoach(gameId){
 window.addEventListener("coach:analyze-game",event=>openGameInCoach(event.detail?.gameId));
 $("analyse-game-button").addEventListener("click",()=>analyseSelectedGame());
 window.addEventListener("coach:games-updated",refreshGamePicker);
-window.CoachAnalysis={openGame:openGameInCoach,analyze:gameId=>openGameInCoach(gameId)};
+window.CoachAnalysis={
+ openGame:openGameInCoach,
+ analyze:gameId=>openGameInCoach(gameId),
+ async analyzePosition(fen){
+  if(busy)throw new Error("Stockfish analyse déjà une partie. Attends la fin de cette analyse.");
+  busy=true;
+  try{
+   const engine=await getEngine(),result=await evalPosition(engine,fen,650);
+   return {...result,bestSan:sanForUci(fen,result.bestmove),pvSan:pvToSan(fen,result.pv,6)};
+  }finally{busy=false;refreshGamePicker();}
+ }
+};
 refreshGamePicker();
