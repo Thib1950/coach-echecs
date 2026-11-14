@@ -20,3 +20,4 @@ function open(id){
 }
 document.addEventListener("click",e=>{const s=e.target.closest("[data-review-step]");if(s&&active){index=Math.max(0,Math.min(moves.length,index+Number(s.dataset.reviewStep)));render();return;}if(e.target.closest("[data-review-start]")&&active){index=0;render();return;}if(e.target.closest("[data-review-end]")&&active){index=moves.length;render();}});
 window.CoachReview={open};
+window.addEventListener("coach:review-game",event=>open(event.detail?.gameId));
