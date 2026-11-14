@@ -32,7 +32,7 @@ function getEngine(){
   engineReady = new Promise((resolve,reject) => {
     try {
       worker = new Worker("./engine-worker.js");
-      const timer = setTimeout(() => reject(new Error("Le moteur met trop de temps à démarrer. Vérifie ta connexion puis réessaie.")), 45000);
+      const timer = setTimeout(() => reject(new Error("Stockfish n’a pas répondu après 60 secondes. Vérifie la connexion puis réessaie.")), 60000);
       worker.onmessage = event => {
         const line = String(event.data || "");
         if (line === "uciok") worker.postMessage("isready");
@@ -64,7 +64,7 @@ function evalPosition(engine, fen){
     };
     engine.addEventListener("message", handler);
     engine.postMessage("position fen " + fen);
-    engine.postMessage("go movetime 120");
+    engine.postMessage("go movetime 600");
     timer=setTimeout(() => { engine.removeEventListener("message", handler); reject(new Error("L'analyse a dépassé le délai prévu.")); }, 15000);
   });
 }
@@ -104,15 +104,16 @@ function refreshGamePicker(){
   $("analyse-game-button").disabled = !games.length || busy;
 }
 function renderResults(g, report){
-  const counts = {good:0,inaccuracy:0,mistake:0,blunder:0};
+  const counts={good:0,inaccuracy:0,mistake:0,blunder:0};
   report.moves.forEach(m=>counts[m.kind]++);
-  const issues = report.moves.filter(m=>m.kind!=="good").sort((a,b)=>b.loss-a.loss);
-  const score = report.moves.length ? Math.round((counts.good/report.moves.length)*100) : 0;
-  $("analysis-results").innerHTML =
-    '<div class="analysis-summary"><div><strong>'+report.moves.length+'</strong><span>coups examinés</span></div><div><strong>'+counts.inaccuracy+'</strong><span>imprécisions</span></div><div><strong>'+counts.mistake+'</strong><span>erreurs</span></div><div><strong>'+counts.blunder+'</strong><span>gaffes</span></div></div>'+
-    '<p class="analysis-verdict">'+(issues.length ? 'Les '+issues.length+' coups à revoir sont listés ci-dessous. Commence par la gaffe ou l’erreur la plus coûteuse.' : 'Aucune grosse erreur détectée dans les coups examinés. Continue à vérifier les positions critiques.')+'</p>'+
-    (issues.length ? '<div class="analysis-moves">'+issues.slice(0,15).map(m=>'<div class="analysis-move"><div><strong>'+esc(m.color==="w"?"Blancs":"Noirs")+' · '+esc(m.moveNo)+'. '+esc(m.played)+'</strong><small>Meilleur coup : '+esc(m.best)+' · perte estimée '+Math.round(m.loss)+' centipions</small></div><span class="move-tag '+m.kind+'">'+m.label+'</span></div>').join("")+'</div>' : '<div class="empty-state compact">Pas d'erreur importante détectée à cette profondeur de calcul.</div>')+
-    '<p class="small muted">Analyse Stockfish 19 Lite · '+report.depth+' recherche(s) courte(s) · '+report.covered+' demi-coups examinés. Les résultats sont une première estimation : approfondir une position peut modifier l'évaluation.</p>';
+  const issues=report.moves.filter(m=>m.kind!=="good");
+  const ordered=[...report.moves].sort((a,b)=>a.ply-b.ply);
+  $("analysis-results").innerHTML=
+    '<div class="analysis-summary"><div><strong>'+report.moves.length+'</strong><span>coups analysés</span></div><div><strong>'+counts.inaccuracy+'</strong><span>imprécisions</span></div><div><strong>'+counts.mistake+'</strong><span>erreurs</span></div><div><strong>'+counts.blunder+'</strong><span>gaffes</span></div></div>'+
+    '<p class="analysis-verdict">'+(issues.length?'Stockfish a trouvé '+issues.length+' coup(s) à revoir. Sélectionne une ligne pour afficher la position et les flèches sur l’échiquier.':'Aucune erreur importante détectée dans les coups examinés.')+'</p>'+
+    '<div class="analysis-moves">'+ordered.map(m=>'<button type="button" class="analysis-move analysis-move-button" data-analysis-ply="'+m.ply+'"><span class="analysis-move-main"><strong>'+esc(m.color==="w"?"Blancs":"Noirs")+' · '+esc(m.moveNo)+'. '+esc(m.played)+'</strong><small>Meilleur coup : <b>'+esc(m.best)+'</b> · '+(m.loss>0?'perte estimée '+Math.round(m.loss)+' centipions':'coup conforme au meilleur choix')+'</small></span><span class="move-tag '+m.kind+'">'+m.label+'</span></button>').join("")+'</div>'+
+    '<p class="small muted">Stockfish 19 Lite · '+report.depth+' positions examinées · '+report.covered+' demi-coups parcourus. Analyse indicative à profondeur limitée.</p>';
+  window.CoachReview?.setAnalysis?.(report.moves,g);
 }
 async function analyseSelectedGame(gameIdOverride){
   if (busy) return;
@@ -123,13 +124,12 @@ async function analyseSelectedGame(gameIdOverride){
   $("analysis-game-select").value=String(game.id);
   if (!game.pgn) { $("analysis-results").innerHTML='<div class="empty-state">Le PGN de cette partie n'est pas disponible. Réimporte la partie depuis Chess.com pour l'analyser.</div>'; return; }
   busy = true; $("analyse-game-button").disabled = true; $("analyse-game-button").textContent = "Analyse en cours…";
-  $("analysis-progress").hidden = false; $("analysis-results").innerHTML = ""; $("game-replay-area").innerHTML = "";
+  $("analysis-progress").hidden = false; $("analysis-results").innerHTML = ""; if(window.CoachReview?.open) window.CoachReview.open(game.id);
   try {
     const parsed = new Chess();
     parsed.loadPgn(game.pgn);
     const history = parsed.history({verbose:true});
     if (!history.length) throw new Error("Aucun coup n'a pu être lu dans le PGN de cette partie.");
-    prepareReplay(game.pgn);
     const engine = await getEngine();
     const replay = new Chess(), report = {moves:[],depth:0,covered:0};
     const userSide = (game.white || "").toLowerCase() === user ? "w" : "b";
@@ -152,7 +152,7 @@ async function analyseSelectedGame(gameIdOverride){
         loss = Math.max(0, beforeEval.score + afterEval.score);
       }
       const category = classify(loss);
-      report.moves.push({fen:before,bestUci:beforeEval.bestmove,color:move.color,moveNo:Math.floor(i/2)+1,played:move.san,playedUci,best:bestSan,loss,...category});
+      report.moves.push({fen:before,bestUci:beforeEval.bestmove,color:move.color,ply:i,moveNo:Math.floor(i/2)+1,played:move.san,playedUci,best:bestSan,loss,...category});
       report.covered = i+1;
       $("analysis-progress-fill").style.width = Math.round((i+1)/maxPlies*100)+"%";
       $("analysis-progress-label").textContent = "Analyse des coups : "+(i+1)+" / "+maxPlies+" demi-coups";
@@ -190,6 +190,7 @@ function openGameInCoach(gameId){
 window.addEventListener("coach:analyze-game",event=>openGameInCoach(event.detail?.gameId));
 $("analyse-game-button").addEventListener("click",()=>analyseSelectedGame());
 window.addEventListener("coach:games-updated",refreshGamePicker);
+document.addEventListener("click",event=>{const row=event.target.closest("[data-analysis-ply]");if(!row)return;const ply=Number(row.dataset.analysisPly);const game=(window.CoachApp?.getGames?.()||[]).find(g=>String(g.id)===$("analysis-game-select").value);const move=game?.analysis?.moves?.find(m=>m.ply===ply);if(move)window.CoachReview?.showAnalysisMove?.(move);});
 window.CoachAnalysis={openGame:openGameInCoach,analyze:gameId=>openGameInCoach(gameId)};
 $("game-replay-area").addEventListener("click",event=>{
  const step=event.target.closest("[data-replay-step]");
