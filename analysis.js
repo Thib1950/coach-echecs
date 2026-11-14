@@ -7,74 +7,88 @@ const user = "gone_1950";
 
 
 function getEngine(){
-  if (engineReady) return engineReady;
-  engineReady = new Promise((resolve,reject) => {
-    try {
-      worker = new Worker("./engine-worker.js?build=22");
-      let stage = "chargement du fichier moteur";
-      const timer = setTimeout(() => reject(new Error("Stockfish ne répond pas à l’étape : " + stage + ". Le moteur n’a pas pu terminer son initialisation.")), 60000);
-      worker.onmessage = event => {
-        const line = String(event.data || "");
-        if (line.indexOf("ENGINE_FATAL") === 0) {
-          clearTimeout(timer);
-          reject(new Error("Stockfish : " + line.slice("ENGINE_FATAL".length).trim()));
-          return;
-        }
-        if (line.indexOf("ENGINE_LOG") === 0) {
-          const detail = line.slice(11).trim();
-          console.info("[Coach Échecs] " + detail);
-          $("engine-status").textContent = detail;
-          if ($("analysis-progress-label")) $("analysis-progress-label").textContent = detail;
-          return;
-        }
-        if (line === "uciok") {
-          stage = "initialisation UCI (isready)";
-          $("engine-status").textContent = "Script chargé · initialisation UCI…";
+  if(engineReady) return engineReady;
+  engineReady=new Promise((resolve,reject)=>{
+    try{
+      // Même méthode que OpenChess : le worker Stockfish est chargé directement
+      // depuis un fichier de même origine, et non via importScripts depuis un CDN.
+      worker=new Worker("./vendor/stockfish/stockfish-19-lite-single.js?build=24");
+      let stage="chargement du moteur Stockfish 19 Lite (WebAssembly)";
+      const timer=setTimeout(()=>{
+        reject(new Error("Stockfish ne répond pas à l’étape : "+stage+". Vérifie que le téléchargement du moteur est terminé puis réessaie."));
+      },90000);
+      worker.onmessage=event=>{
+        const line=String(event.data||"").trim();
+        if(line==="uciok"){
+          stage="initialisation UCI (isready)";
+          $("engine-status").textContent="Moteur téléchargé · initialisation…";
           worker.postMessage("isready");
-        }
-        if (line === "readyok") {
+        }else if(line==="readyok"){
           clearTimeout(timer);
-          $("engine-status").textContent = "Stockfish prêt";
+          $("engine-status").textContent="Stockfish 19 prêt";
           $("engine-status").classList.add("ready");
           resolve(worker);
         }
       };
-      worker.onerror = event => {
+      worker.onerror=event=>{
         clearTimeout(timer);
-        const detail = [event.message, event.filename, event.lineno ? "ligne " + event.lineno : ""].filter(Boolean).join(" · ");
-        reject(new Error("Safari bloque le chargement du moteur" + (detail ? " : " + detail : ".")));
+        event.preventDefault?.();
+        const detail=[event.message,event.filename,event.lineno?"ligne "+event.lineno:""].filter(Boolean).join(" · ");
+        reject(new Error("Échec du chargement de Stockfish WebAssembly"+(detail?" : "+detail:". Le fichier local ou son téléchargement est inaccessible.")));
       };
-      stage = "attente de la réponse UCI (uciok)";
+      worker.onmessageerror=()=>{
+        clearTimeout(timer);
+        reject(new Error("Stockfish a envoyé une réponse illisible au navigateur."));
+      };
+      $("engine-status").textContent="Téléchargement du moteur Stockfish…";
+      stage="attente de la réponse UCI (uciok)";
       worker.postMessage("uci");
-      $("engine-status").textContent = "Worker démarré · attente de Stockfish…";
-    } catch (error) { reject(error); }
+    }catch(error){reject(error);}
   });
   return engineReady;
 }
 
-function evalPosition(engine, fen){
-  return new Promise((resolve,reject) => {
-    let score = 0, bestmove = "", timer=null;
-    const handler = event => {
-      const line = String(event.data || "");
-      const cp = line.match(/\bscore cp (-?\d+)/);
-      const mate = line.match(/\bscore mate (-?\d+)/);
-      if (cp) score = Number(cp[1]);
-      if (mate) score = Number(mate[1]) > 0 ? 10000 : -10000;
-      if (line.startsWith("bestmove")) {
-        engine.removeEventListener("message", handler);
+function evalPosition(engine,fen){
+  return new Promise((resolve,reject)=>{
+    let score=0,bestmove="",pv=[],depth=0,timer=null;
+    const handler=event=>{
+      const line=String(event.data||"");
+      const cp=line.match(/\\bscore cp (-?\\d+)/);
+      const mate=line.match(/\\bscore mate (-?\\d+)/);
+      if(cp)score=Number(cp[1]);
+      if(mate)score=Number(mate[1])>0?10000:-10000;
+      if(line.startsWith("info ")){
+        const d=line.match(/\\bdepth (\\d+)/);
+        if(d)depth=Number(d[1]);
+        const pvIndex=line.indexOf(" pv ");
+        if(pvIndex>=0)pv=line.slice(pvIndex+4).trim().split(/\\s+/).filter(Boolean);
+      }
+      if(line.startsWith("bestmove")){
+        engine.removeEventListener("message",handler);
         clearTimeout(timer);
-        bestmove = line.split(/\s+/)[1] || "";
-        resolve({score,bestmove});
+        bestmove=line.split(/\\s+/)[1]||"";
+        const whiteToMove=fen.split(" ")[1]!=="b";
+        resolve({score,bestmove,pv,depth,scoreWhite:score*(whiteToMove?1:-1)});
       }
     };
-    engine.addEventListener("message", handler);
-    engine.postMessage("position fen " + fen);
-    engine.postMessage("go movetime 600");
-    timer=setTimeout(() => { engine.removeEventListener("message", handler); reject(new Error("L'analyse a dépassé le délai prévu.")); }, 15000);
+    engine.addEventListener("message",handler);
+    engine.postMessage("position fen "+fen);
+    engine.postMessage("go movetime 650");
+    timer=setTimeout(()=>{
+      engine.removeEventListener("message",handler);
+      reject(new Error("Stockfish n’a pas terminé l’analyse de cette position dans le délai prévu."));
+    },20000);
   });
 }
 
+function pvToSan(fen,pv,max=8){
+  const board=new Chess(fen),out=[];
+  for(const uci of (pv||[]).slice(0,max)){
+    try{out.push(board.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]}).san);}
+    catch{break;}
+  }
+  return out;
+}
 function uciMove(move){ return move.from + move.to + (move.promotion || ""); }
 function sanForUci(fen, uci){
   if (!uci || uci === "(none)") return "—";
@@ -124,7 +138,7 @@ function renderResults(g, report){
     '<div class="analysis-summary"><div><strong>'+report.moves.length+'</strong><span>coups analysés</span></div><div><strong>'+counts.inaccuracy+'</strong><span>imprécisions</span></div><div><strong>'+counts.mistake+'</strong><span>erreurs</span></div><div><strong>'+counts.blunder+'</strong><span>gaffes</span></div></div>'+
     '<p class="analysis-verdict">'+(issues.length?"Stockfish a trouvé "+issues.length+" coup(s) à revoir. Sélectionne une ligne pour afficher la position et les flèches sur l’échiquier.":"Aucune erreur importante détectée dans les coups examinés.")+'</p>'+
     '<div class="analysis-moves">'+rows+'</div>'+
-    '<p class="small muted">Stockfish 19 Lite · '+report.depth+' positions examinées · '+report.covered+' demi-coups parcourus. Analyse indicative à profondeur limitée.</p>';
+    '<p class="small muted">Stockfish 19 Lite · '+report.positions.length+' positions examinées · '+report.covered+' demi-coups parcourus. Analyse indicative à profondeur limitée.</p>';
   window.CoachReview?.setAnalysis?.(report.moves,g);
 }
 async function analyseSelectedGame(gameIdOverride){
@@ -143,34 +157,45 @@ async function analyseSelectedGame(gameIdOverride){
     const history = parsed.history({verbose:true});
     if (!history.length) throw new Error("Aucun coup n'a pu être lu dans le PGN de cette partie.");
     const engine = await getEngine();
-    const replay = new Chess(), report = {moves:[],depth:0,covered:0};
-    const userSide = (game.white || "").toLowerCase() === user ? "w" : "b";
-    const maxPlies = Math.min(history.length, 80);
-    for (let i=0;i<maxPlies;i++) {
-      const move = history[i], before = replay.fen(), playedUci = uciMove(move);
-      if (move.color !== userSide) {
-        replay.move({from:move.from,to:move.to,promotion:move.promotion});
-        report.covered = i+1;
-        $("analysis-progress-fill").style.width = Math.round((i+1)/maxPlies*100)+"%";
-        $("analysis-progress-label").textContent = "Relecture : "+(i+1)+" / "+maxPlies+" demi-coups · "+elapsedText(startedAt);
-        continue;
-      }
-      const beforeEval = await evalPosition(engine,before);
-      const bestSan = sanForUci(before,beforeEval.bestmove);
+    const replay=new Chess(),report={moves:[],depth:0,covered:0,positions:[]};
+    const userSide=(game.white||"").toLowerCase()===user?"w":"b";
+    const maxPlies=Math.min(history.length,80);
+    const evaluations=[];
+    // Une évaluation par position donne une courbe complète, comme sur les analyseurs
+    // de référence. Le score est normalisé du point de vue des Blancs.
+    for(let i=0;i<maxPlies;i++){
+      const before=replay.fen();
+      const positionEval=await evalPosition(engine,before);
+      evaluations.push(positionEval);
+      const move=history[i];
       replay.move({from:move.from,to:move.to,promotion:move.promotion});
-      let loss = 0;
-      if (beforeEval.bestmove && beforeEval.bestmove !== playedUci) {
-        const afterEval = await evalPosition(engine,replay.fen());
-        loss = Math.max(0, beforeEval.score + afterEval.score);
-      }
-      const category = classify(loss);
-      report.moves.push({fen:before,bestUci:beforeEval.bestmove,color:move.color,ply:i,moveNo:Math.floor(i/2)+1,played:move.san,playedUci,best:bestSan,loss,...category});
-      report.covered = i+1;
-      $("analysis-progress-fill").style.width = Math.round((i+1)/maxPlies*100)+"%";
-      $("analysis-progress-label").textContent = "Analyse : "+(i+1)+" / "+maxPlies+" demi-coups · "+elapsedText(startedAt);
+      report.covered=i+1;
+      $("analysis-progress-fill").style.width=Math.round((i+1)/maxPlies*100)+"%";
+      $("analysis-progress-label").textContent="Analyse Stockfish : position "+(i+1)+" / "+maxPlies+" · "+elapsedText(startedAt);
     }
-    report.depth = report.moves.length;
-    game.analysis = {date:new Date().toISOString(),moves:report.moves,covered:report.covered};
+    evaluations.push(await evalPosition(engine,replay.fen()));
+    report.positions=evaluations.map(item=>item.scoreWhite);
+    for(let i=0;i<maxPlies;i++){
+      const move=history[i];
+      if(move.color!==userSide)continue;
+      const beforeEval=evaluations[i],afterEval=evaluations[i+1];
+      const fen=new Chess();
+      for(let j=0;j<i;j++)fen.move({from:history[j].from,to:history[j].to,promotion:history[j].promotion});
+      const beforeFen=fen.fen(),playedUci=uciMove(move);
+      const bestSan=sanForUci(beforeFen,beforeEval.bestmove);
+      const moverSign=move.color==="w"?1:-1;
+      const loss=Math.max(0,moverSign*(beforeEval.scoreWhite-afterEval.scoreWhite));
+      const category=classify(loss);
+      report.moves.push({
+        fen:beforeFen,bestUci:beforeEval.bestmove,pvUci:beforeEval.pv,
+        pvSan:pvToSan(beforeFen,beforeEval.pv,8),
+        evalWhite:beforeEval.scoreWhite,afterEvalWhite:afterEval.scoreWhite,
+        color:move.color,ply:i,moveNo:Math.floor(i/2)+1,
+        played:move.san,playedUci,best:bestSan,loss,...category
+      });
+    }
+    report.depth=maxPlies;
+    game.analysis = {date:new Date().toISOString(),moves:report.moves,positions:report.positions,covered:report.covered};
     window.CoachApp.saveGames();
     renderResults(game,report);
     $("analysis-progress-fill").style.width = "100%"; $("analysis-progress-label").textContent = "Analyse terminée en "+elapsedText(startedAt)+".";
