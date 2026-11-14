@@ -117,7 +117,7 @@ function mountOpeningBoard(game,startPly=0){
   for(let rank=8;rank>=1;rank--)for(let fi=0;fi<8;fi++){const file="abcdefgh"[fi],sq=file+rank,p=board.get(sq),light=(rank+fi)%2===1,cls=["opening-square",light?"light":"dark"];if(selected===sq)cls.push("selected");if(targets.has(sq))cls.push(targets.get(sq)==="capture"?"capture-target":"legal-target");html+='<button type="button" class="'+cls.join(" ")+'" data-opening-square="'+sq+'" aria-label="'+sq+'">'+(p?glyph[p.color+p.type]:"")+(targets.has(sq)&&targets.get(sq)==="move"?'<i class="opening-legal-dot"></i>':"")+'</button>';}
   html+='</div><div class="opening-explorer-side"><p class="muted">'+(free?"Mode libre : joue les coups légaux de ton choix.":"Relecture de la partie exemple : avance ou recule dans les coups.")+'</p><strong class="opening-explorer-status">'+(free?"Exploration libre":"Coup "+index+" / "+history.length)+'</strong><div class="opening-explorer-controls"><button type="button" data-opening-prev '+(free||index===0?"disabled":"")+'>←</button><button type="button" data-opening-next '+(free||index>=history.length?"disabled":"")+'>→</button><button type="button" data-opening-free>Mode libre</button><button type="button" data-opening-reset>Réinitialiser</button><button type="button" data-opening-analyze>Analyser la position</button></div><p id="opening-engine-result" class="small muted">Stockfish analysera uniquement quand tu appuieras sur le bouton.</p><p class="small muted">'+(free?"Les coups restent dans cet échiquier et n’affectent pas tes parties importées.":"Sélectionne Mode libre pour essayer tes propres variantes.")+'</p></div></div>';root.innerHTML=html;
  };
- root.addEventListener("click",event=>{
+ root.onclick=event=>{
   const sq=event.target.closest("[data-opening-square]");
   if(sq){const name=sq.dataset.openingSquare,piece=board.get(name);if(!selected){if(piece&&piece.color===board.turn()){selected=name;draw();}return;}if(piece&&piece.color===board.turn()){selected=name;draw();return;}const move=board.moves({square:selected,verbose:true}).find(m=>m.to===name);if(move){board.move({from:selected,to:name,promotion:"q"});selected=null;free=true;draw();}else{selected=null;draw();}return;}
   if(event.target.closest("[data-opening-prev]")&&!free&&index>0){index--;board=new Chess();for(const m of history.slice(0,index))board.move({from:m.from,to:m.to,promotion:m.promotion});selected=null;draw();return;}
@@ -133,7 +133,7 @@ function mountOpeningBoard(game,startPly=0){
     output.textContent="Évaluation (point de vue des Blancs) : "+score+" · Meilleur coup : "+result.bestSan+" · Suite : "+(result.pvSan||[]).join(" ");
    }).catch(error=>{output.textContent=error.message||"Analyse impossible.";});
   }
- });draw();
+ };draw();
 }
 function openGame(id){if(window.CoachReview?.open){window.CoachReview.open(id);return;}window.dispatchEvent(new CustomEvent("coach:review-game",{detail:{gameId:id}}));}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-opening]");if(b){const g=groups.find(x=>x.key===b.dataset.opening);if(g)renderDetail(g);}});
