@@ -700,3 +700,35 @@ html,body,button,a,input,select{touch-action:manipulation}
  .recent-game-elo{grid-column:2;grid-row:1}
  .recent-review-button{grid-column:2;grid-row:2}
 }
+
+/* v36 — commandes de relecture, icônes de cadence et exercices */
+.ratings-surface{padding:15px 18px}
+.ratings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.rating-card{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;justify-content:initial;gap:12px;min-height:70px}
+.rating-mode-icon{width:30px;height:30px;display:block}
+.blitz-icon{color:#f5c84b}.rapid-icon{color:#d9e7f7}
+.rating-card span{grid-column:2;grid-row:1;font-size:11px}
+.rating-card strong{grid-column:3;grid-row:1}
+.review-free-start{min-height:42px;padding:0 16px;border:1px solid #8caf43;border-radius:10px;background:#344d2b;color:#efffd1;font:800 12px 'DM Sans';cursor:pointer;white-space:nowrap}
+.review-free-start:hover{background:#405f32}
+.replay-controls{flex-wrap:wrap}
+.analysis-summary .summary-top{display:flex;align-items:center;justify-content:center;gap:9px;min-height:36px}
+.analysis-summary .summary-top .metric-icon{width:30px;height:30px;display:grid;place-items:center;font-size:19px}
+.analysis-summary .summary-top strong{font-size:23px;line-height:1}
+#result-bars .bar-item{grid-template-columns:100px minmax(0,1fr) 145px}
+#result-bars .bar-item strong{font-size:12px;text-align:right;white-space:nowrap}
+.opening-exercise-screen{margin-top:14px}
+.opening-exercise-screen .opening-practice-layout{grid-template-columns:minmax(0,1.6fr) minmax(220px,.7fr);align-items:center;gap:20px}
+.opening-exercise-screen .opening-practice-board{width:100%;max-width:620px}
+.opening-exercise-screen .opening-practice-coach{min-height:230px}
+.opening-exercise-screen .opening-practice-coach button{width:100%}
+.opening-square{position:relative;display:grid;place-items:center}
+.opening-square .chess-piece-image{width:90%;height:90%;pointer-events:none}
+@media(max-width:760px){
+ .ratings-grid{grid-template-columns:1fr}
+ .rating-card{grid-template-columns:34px minmax(0,1fr) auto;flex-direction:initial;align-items:center}
+ .review-free-start{width:100%}
+ #result-bars .bar-item{grid-template-columns:76px minmax(0,1fr) 115px;gap:8px}
+ .opening-exercise-screen .opening-practice-layout{grid-template-columns:1fr}
+ .opening-exercise-screen .opening-practice-board{max-width:620px;margin:0 auto}
+}
