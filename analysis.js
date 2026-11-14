@@ -56,6 +56,7 @@ function sanForUci(fen, uci){
   const found = moves.find(m => uciMove(m) === uci);
   return found ? found.san : uci;
 }
+function elapsedText(startedAt){const seconds=Math.floor((Date.now()-startedAt)/1000);return Math.floor(seconds/60)+":"+String(seconds%60).padStart(2,"0");}
 function classify(loss){
   if (loss < 35) return {label:"Bon coup",kind:"good"};
   if (loss < 90) return {label:"Imprécision",kind:"inaccuracy"};
@@ -102,7 +103,7 @@ async function analyseSelectedGame(gameIdOverride){
   if (!game) { $("analysis-results").innerHTML='<div class="empty-state">Aucune partie sélectionnée.</div>'; return; }
   $("analysis-game-select").value=String(game.id);
   if (!game.pgn) { $("analysis-results").innerHTML='<div class="empty-state">Le PGN de cette partie n'est pas disponible. Réimporte la partie depuis Chess.com pour l'analyser.</div>'; return; }
-  busy = true; $("analyse-game-button").disabled = true; $("analyse-game-button").textContent = "Analyse en cours…";
+  busy = true; const startedAt=Date.now(); $("analyse-game-button").disabled = true; $("analyse-game-button").textContent = "Analyse en cours…";
   $("analysis-progress").hidden = false; $("analysis-progress-fill").style.width = "0%"; $("analysis-progress-label").textContent = "Chargement du moteur Stockfish…"; $("analysis-results").innerHTML = ""; if(window.CoachReview?.open) window.CoachReview.open(game.id);
   try {
     const parsed = new Chess();
@@ -119,7 +120,7 @@ async function analyseSelectedGame(gameIdOverride){
         replay.move({from:move.from,to:move.to,promotion:move.promotion});
         report.covered = i+1;
         $("analysis-progress-fill").style.width = Math.round((i+1)/maxPlies*100)+"%";
-        $("analysis-progress-label").textContent = "Relecture de la partie : "+(i+1)+" / "+maxPlies+" demi-coups";
+        $("analysis-progress-label").textContent = "Relecture : "+(i+1)+" / "+maxPlies+" demi-coups · "+elapsedText(startedAt);
         continue;
       }
       const beforeEval = await evalPosition(engine,before);
@@ -134,13 +135,13 @@ async function analyseSelectedGame(gameIdOverride){
       report.moves.push({fen:before,bestUci:beforeEval.bestmove,color:move.color,ply:i,moveNo:Math.floor(i/2)+1,played:move.san,playedUci,best:bestSan,loss,...category});
       report.covered = i+1;
       $("analysis-progress-fill").style.width = Math.round((i+1)/maxPlies*100)+"%";
-      $("analysis-progress-label").textContent = "Analyse des coups : "+(i+1)+" / "+maxPlies+" demi-coups";
+      $("analysis-progress-label").textContent = "Analyse : "+(i+1)+" / "+maxPlies+" demi-coups · "+elapsedText(startedAt);
     }
     report.depth = report.moves.length;
     game.analysis = {date:new Date().toISOString(),moves:report.moves,covered:report.covered};
     window.CoachApp.saveGames();
     renderResults(game,report);
-    $("analysis-progress-label").textContent = "Analyse terminée.";
+    $("analysis-progress-fill").style.width = "100%"; $("analysis-progress-label").textContent = "Analyse terminée en "+elapsedText(startedAt)+".";
   } catch(error) {
     engineReady=null;
     if(worker){try{worker.terminate();}catch{} worker=null;}
