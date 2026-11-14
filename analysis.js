@@ -318,7 +318,7 @@ let autoQueueRunning=false,autoQueueStopped=false;
 function updateAccuracyQueueStatus(){
   const all=window.CoachApp?.getGames?.()||[];
   const eligible=all.filter(g=>g.pgn);
-  const complete=eligible.filter(g=>!g.analysis?.partial&&Number.isFinite(Number(g.analysis?.accuracy))).length;
+  const complete=eligible.filter(g=>!g.analysis?.partial&&typeof g.analysis?.accuracy==="number"&&Number.isFinite(g.analysis.accuracy)).length;
   const pending=eligible.length-complete;
   const node=$("accuracy-queue-status");
   if(node)node.textContent=pending?"Calcul automatique de ta précision : "+complete+" / "+eligible.length+" parties terminées · "+pending+" restantes.":eligible.length?"Précision calculée pour toutes tes parties importées.":"";
@@ -329,11 +329,11 @@ async function startAccuracyQueue(){
   try{
     while(!document.hidden&&!autoQueueStopped){
       const all=(window.CoachApp?.getGames?.()||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-      const next=all.find(g=>g.pgn&&(g.analysis?.partial||!Number.isFinite(Number(g.analysis?.accuracy))));
+      const next=all.find(g=>g.pgn&&(g.analysis?.partial||typeof g.analysis?.accuracy!=="number"||!Number.isFinite(g.analysis.accuracy)));
       updateAccuracyQueueStatus();
       if(!next)break;
       await analyseSelectedGame(next.id,{background:true,movetime:120});
-      if(!next.analysis?.partial&&!Number.isFinite(Number(next.analysis?.accuracy))){autoQueueStopped=true;break;}
+      if(!next.analysis?.partial&&(typeof next.analysis?.accuracy!=="number"||!Number.isFinite(next.analysis.accuracy))){autoQueueStopped=true;break;}
       if(next.analysis?.partial){autoQueueStopped=true;break;}
       await new Promise(resolve=>setTimeout(resolve,250));
     }
