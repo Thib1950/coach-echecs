@@ -158,11 +158,7 @@ function renderResults(g, report){
   report.moves.forEach(m=>{if(m.loss!==null&&m.loss!==undefined&&counts[m.kind]!==undefined)counts[m.kind]++;});
   const meta={brilliant:["!!","Brillants"],perfect:["✓","Parfaits"],best:["★","Meilleurs"],good:["✓","Bons coups"],inaccuracy:["?!","Imprécisions"],mistake:["?","Erreurs"],blunder:["??","Gaffes"]};
   const tiles=kinds.map(k=>'<div class="summary-metric '+k+'"><span class="metric-icon">'+meta[k][0]+'</span><strong>'+counts[k]+'</strong><span class="metric-label">'+meta[k][1]+'</span></div>').join("");
-  const moveList=report.moves.filter(m=>m.loss!==null&&m.loss!==undefined).map(m=>{
-    const symbol=meta[m.kind]?.[0]||"✓",label=m.label||"Bon coup";
-    return '<button type="button" class="analysis-move analysis-move-button" data-analysis-game="'+esc(g.id)+'" data-analysis-ply="'+m.ply+'"><span class="analysis-move-main"><strong>'+Math.floor(m.ply/2+1)+'. '+esc(m.played||"—")+'</strong><small>Meilleur coup : <b>'+esc(m.best||"—")+'</b> · perte estimée '+Math.round(m.loss)+' cp</small></span><span class="move-tag '+m.kind+'">'+symbol+' '+esc(label)+'</span></button>';
-  }).join("");
-  $("analysis-results").innerHTML='<div class="analysis-summary">'+tiles+'</div><p class="analysis-verdict">'+(report.moves.length?"Voici le détail de tes décisions, coup par coup. Sélectionne une ligne pour afficher la position et comprendre l’idée.":"Aucun coup personnel n’a encore été évalué.")+'</p><div class="analysis-moves">'+moveList+'</div><p class="small muted">Précision estimée sur tes coups uniquement · analyse moteur indicative à profondeur limitée. Les coups brillants sont comptés uniquement lorsqu’un sacrifice décisif est reconnu.</p>';
+  $("analysis-results").innerHTML='<div class="analysis-summary">'+tiles+'</div><p class="small muted">Précision estimée sur tes coups uniquement · analyse moteur indicative à profondeur limitée. Les coups brillants sont comptés uniquement lorsqu’un sacrifice décisif est reconnu.</p>';
   if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,g);
 }
 function accuracyFromMoves(moves){
@@ -226,13 +222,6 @@ async function analyseSelectedGame(gameIdOverride,options={}){
         positionDetails:report.positionDetails,covered:report.covered,
         accuracy:null,partial:true
       };
-      // Publie la flèche du meilleur coup dès que Stockfish a terminé cette position.
-      window.CoachApp.saveGames();
-      if(!background){
-        renderResults(game,report);
-        if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,game);
-      }
-
       const afterEval=await evalPosition(engine,replay.fen(),movetime);
       const moverSign=move.color==="w"?1:-1;
       const loss=beforeEval.bestmove===playedUci?0:Math.max(0,moverSign*(beforeEval.scoreWhite-afterEval.scoreWhite));
@@ -248,10 +237,9 @@ async function analyseSelectedGame(gameIdOverride,options={}){
         positionDetails:report.positionDetails,covered:report.covered,
         accuracy:accuracyFromMoves(report.moves),partial:true
       };
-      window.CoachApp.saveGames();
-      renderResults(game,report);
-      if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,game);
+      if(move.color===userSide)window.CoachApp.saveGames();
       if(!background){
+        if(move.color===userSide&&(report.moves.length%3===0||i===history.length-1))renderResults(game,report);
         $("analysis-progress-fill").style.width=Math.round((i+1)/history.length*100)+"%";
         $("analysis-progress-label").textContent="Analyse en cours · "+(i+1)+" / "+history.length+" demi-coups · "+elapsedText(startedAt);
       }
@@ -286,7 +274,7 @@ async function analyseSelectedGame(gameIdOverride,options={}){
     busy=false;refreshGamePicker();
     if(!background){
       $("analyse-game-button").disabled=false;$("analyse-game-button").textContent="Analyser cette partie";
-      setTimeout(startAccuracyQueue,700);
+
     }
   }
 }
@@ -307,45 +295,6 @@ function openGameInCoach(gameId){
 }
 window.addEventListener("coach:analyze-game",event=>openGameInCoach(event.detail?.gameId));
 $("analyse-game-button").addEventListener("click",()=>analyseSelectedGame());
-window.addEventListener("coach:games-updated",()=>{refreshGamePicker();updateAccuracyQueueStatus();setTimeout(startAccuracyQueue,400);});
-
+window.addEventListener("coach:games-updated",refreshGamePicker);
 window.CoachAnalysis={openGame:openGameInCoach,analyze:gameId=>openGameInCoach(gameId)};
 refreshGamePicker();
-updateAccuracyQueueStatus();
-setTimeout(startAccuracyQueue,1800);
-
-let autoQueueRunning=false,autoQueueStopped=false;
-function updateAccuracyQueueStatus(){
-  const all=window.CoachApp?.getGames?.()||[];
-  const eligible=all.filter(g=>g.pgn);
-  const complete=eligible.filter(g=>!g.analysis?.partial&&typeof g.analysis?.accuracy==="number"&&Number.isFinite(g.analysis.accuracy)).length;
-  const pending=eligible.length-complete;
-  const node=$("accuracy-queue-status");
-  if(node)node.textContent=pending?"Calcul automatique de ta précision : "+complete+" / "+eligible.length+" parties terminées · "+pending+" restantes.":eligible.length?"Précision calculée pour toutes tes parties importées.":"";
-}
-async function startAccuracyQueue(){
-  if(autoQueueRunning||busy||document.hidden)return;
-  autoQueueRunning=true;autoQueueStopped=false;
-  try{
-    while(!document.hidden&&!autoQueueStopped){
-      const all=(window.CoachApp?.getGames?.()||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-      const next=all.find(g=>g.pgn&&(g.analysis?.partial||typeof g.analysis?.accuracy!=="number"||!Number.isFinite(g.analysis.accuracy)));
-      updateAccuracyQueueStatus();
-      if(!next)break;
-      await analyseSelectedGame(next.id,{background:true,movetime:120});
-      if(!next.analysis?.partial&&(typeof next.analysis?.accuracy!=="number"||!Number.isFinite(next.analysis.accuracy))){autoQueueStopped=true;break;}
-      if(next.analysis?.partial){autoQueueStopped=true;break;}
-      await new Promise(resolve=>setTimeout(resolve,250));
-    }
-  }catch(error){console.warn("Calcul automatique de précision interrompu",error);}
-  finally{autoQueueRunning=false;updateAccuracyQueueStatus();}
-}
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)setTimeout(startAccuracyQueue,500);});
-document.addEventListener("click",event=>{
-  const button=event.target.closest("[data-analysis-ply]");
-  if(!button)return;
-  const all=window.CoachApp?.getGames?.()||[];
-  const game=all.find(g=>String(g.id)===button.dataset.analysisGame);
-  const move=game?.analysis?.moves?.find(m=>String(m.ply)===button.dataset.analysisPly);
-  if(move)window.CoachReview?.showAnalysisMove(move);
-});
