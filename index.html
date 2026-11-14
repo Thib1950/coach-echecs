@@ -88,7 +88,7 @@
           <div id="analysis-progress" class="analysis-progress" hidden><div class="analysis-progress-track"><div id="analysis-progress-fill"></div></div><p id="analysis-progress-label">Préparation du moteur…</p></div>
           <div id="game-replay-area"></div><div id="analysis-results"><div class="empty-state compact">Sélectionne une partie puis lance l'analyse pour obtenir des commentaires sur tes coups.</div></div><div id="lesson-area"></div>
         </article>
-        <p class="small muted">Le moteur utilise la version légère de Stockfish 19 pour rester compatible avec Safari sur iPad. Les évaluations sont indicatives et la première analyse peut nécessiter le téléchargement du moteur.</p>
+        <p class="small muted">Le moteur Stockfish 19 Lite WebAssembly est chargé dans un Worker de même origine et mis en cache sur ton appareil. Le premier lancement télécharge environ 3,5 Mo ; les analyses suivantes réutilisent le moteur en cache.</p>
       </section>
 
       <section class="panel" id="panel-openings">
