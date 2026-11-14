@@ -492,3 +492,75 @@ html,body,button,a,input,select{touch-action:manipulation}
 .opening-status.solid{background:#233f2b;color:#b7efb8;border:1px solid #477f4f}
 .opening-status.neutral{background:#303b49;color:#cbd5e1;border:1px solid #536274}
 @media(max-width:760px){.opening-status{align-self:flex-start}}
+
+/* v31 — hiérarchie visuelle, échiquiers prioritaires et repères cohérents */
+.dashboard-toolbar{display:flex;flex-direction:row;align-items:center;justify-content:flex-end;margin:0 0 18px}
+.dashboard-toolbar-right{display:flex;align-items:center;justify-content:flex-end;gap:16px;flex-wrap:wrap}
+.dashboard-toolbar .sync-state{order:0;white-space:nowrap}
+.dashboard-toolbar .button-row{order:1;display:flex;justify-content:flex-end;gap:10px;margin:0}
+.dashboard-toolbar .primary-button,.dashboard-toolbar .secondary-button{min-height:43px;padding:11px 18px;font-size:13px}
+.recent-game-row{padding:18px 20px;margin:0 0 11px;min-height:86px;border:1px solid #405a73;background:linear-gradient(110deg,#1b3046,#14253a);box-shadow:0 5px 14px #07111d55}
+.recent-game-opponent{color:#8fd5ff!important;text-shadow:0 1px 0 #0a1725}
+.recent-game-row:nth-child(even){background:linear-gradient(110deg,#20364b,#172b40)}
+.game-row-expanded{grid-template-columns:minmax(0,1fr) 140px 120px 44px;gap:16px;padding:18px 20px;margin-bottom:10px;min-height:88px;border:1px solid #40566d;background:#172a3e}
+.game-row-expanded:nth-child(even){background:#1c3045}
+.game-list-accuracy{width:140px;justify-self:end;justify-items:end;text-align:right}
+.game-list-accuracy strong{min-width:4ch;text-align:right}
+.game-row-expanded .game-result{width:120px;justify-self:end;text-align:right}
+.game-row-expanded .game-opponent{color:#8fd5ff}
+.progress-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.progress-kpis .training-kpi{min-height:120px}
+.progress-kpis .training-kpi strong{display:block;font:900 34px Manrope;color:#d8f2a5;margin-top:9px}
+#result-bars .bar-item strong{min-width:92px;text-align:right;font-variant-numeric:tabular-nums}
+.replay-layout{grid-template-columns:minmax(0,1.65fr) minmax(220px,.55fr)!important;gap:22px!important;align-items:start!important}
+.replay-board-wrap{width:min(100%,820px)!important}
+.replay-board-wrap .replay-board{max-width:780px!important}
+.replay-board .chess-piece-image{width:90%!important;height:90%!important}
+.replay-square .piece{font-size:clamp(28px,5.5vw,52px)}
+.coach-card{position:sticky;top:16px}
+.analysis-summary{display:flex;flex-wrap:wrap;gap:9px}
+.analysis-summary .summary-metric{flex:1 1 145px;max-width:220px}
+.summary-metric .metric-icon{font-size:16px}
+.opening-variant-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.opening-variant-actions button{border:1px solid #52708a;border-radius:8px;background:#20364a;color:#dff0ff;padding:9px 12px;font:750 12px 'DM Sans';cursor:pointer}
+.opening-variant-actions button:first-child{background:#263f58}
+.opening-variant-preview[hidden]{display:none}
+.opening-variant-preview{display:flex;align-items:center;gap:16px;padding:13px;margin:0 0 12px;background:#102034;border:1px solid #3d5871;border-radius:11px}
+.opening-preview-board{display:grid;grid-template-columns:repeat(8,1fr);width:min(100%,240px);flex:0 0 240px;aspect-ratio:1;border:4px solid #2b4055;border-radius:4px;overflow:hidden}
+.opening-preview-square{display:grid;place-items:center;aspect-ratio:1}
+.opening-preview-square.light{background:#e8dfc9}.opening-preview-square.dark{background:#77916f}
+.opening-preview-square img{width:94%;height:94%;object-fit:contain}
+.opening-preview-info{min-width:0}
+.opening-preview-info strong{font:800 15px Manrope;color:#f0f6fc}
+.opening-preview-info p{font-size:13px;line-height:1.6;color:#bfe1ff;overflow-wrap:anywhere}
+.opening-preview-info small{font-size:11px;color:#aebfd0;line-height:1.5}
+.opening-practice-layout{grid-template-columns:minmax(0,1.8fr) minmax(210px,.6fr)!important}
+.opening-practice-board{max-width:760px}
+.opening-square .chess-piece-image{width:91%!important;height:91%!important}
+@media(max-width:760px){
+ .dashboard-toolbar{align-items:flex-end;flex-direction:column}
+ .dashboard-toolbar-right{width:100%;align-items:flex-end;flex-direction:column;gap:9px}
+ .dashboard-toolbar .button-row{width:100%;display:grid;grid-template-columns:1fr 1fr}
+ .game-row-expanded{grid-template-columns:minmax(0,1fr) 105px 95px 38px;gap:7px;padding:13px 11px}
+ .game-list-accuracy{width:105px;grid-column:2;grid-row:1}
+ .game-row-expanded .game-result{width:95px;grid-column:3;grid-row:1;font-size:12px}
+ .game-row-expanded .analysis-icon-button{grid-column:4;grid-row:1;width:36px;height:36px}
+ .replay-layout{grid-template-columns:1fr!important}
+ .replay-board-wrap{width:100%!important}
+ .replay-board-wrap .replay-board{max-width:100%!important}
+ .coach-card{position:static}
+ .opening-variant-preview{align-items:flex-start;flex-direction:column}
+ .opening-preview-board{width:min(100%,300px);flex-basis:auto;margin:0 auto}
+ .opening-practice-layout{grid-template-columns:1fr!important}
+}
+@media(max-width:520px){
+ .game-row-expanded{grid-template-columns:minmax(0,1fr) 84px 86px;gap:7px}
+ .game-list-accuracy{width:84px;grid-column:2;grid-row:1}
+ .game-list-accuracy span{font-size:8px}
+ .game-list-accuracy strong{font-size:17px}
+ .game-row-expanded .game-result{width:86px;grid-column:3;grid-row:1;font-size:11px;padding:7px 4px}
+ .game-row-expanded .analysis-icon-button{grid-column:3;grid-row:2;width:34px;height:34px}
+ .game-row-expanded .game-row-info{grid-column:1;grid-row:1/3}
+ .progress-kpis{grid-template-columns:1fr}
+ .analysis-summary .summary-metric{flex-basis:calc(50% - 9px)}
+}
