@@ -186,10 +186,7 @@ async function analyseSelectedGame(gameIdOverride){
     for(let i=0;i<history.length;i++){
       const beforeFen=replay.fen(),move=history[i],playedUci=uciMove(move);
       replay.move({from:move.from,to:move.to,promotion:move.promotion});
-      const afterEval=await evalPosition(engine,replay.fen());
       const bestSan=sanForUci(beforeFen,beforeEval.bestmove);
-      const moverSign=move.color==="w"?1:-1;
-      const loss=beforeEval.bestmove===playedUci?0:Math.max(0,moverSign*(beforeEval.scoreWhite-afterEval.scoreWhite));
       const facts=bestMoveFacts(beforeFen,beforeEval.bestmove);
       const playedBoard=new Chess(beforeFen);playedBoard.move({from:move.from,to:move.to,promotion:move.promotion});
       const detail={
