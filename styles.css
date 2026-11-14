@@ -46,3 +46,24 @@
 .analysis-move-main small{line-height:1.5}
 .analysis-move-main small b{color:#b8f18a}
 @media(max-width:650px){.chess-piece-image{width:90%;height:90%}.board-analysis-note{margin-top:12px}}
+
+
+/* Interface de relecture optimisée tablette */
+html,body,button,a,input,select{touch-action:manipulation}
+.replay-layout{display:flex;flex-direction:column;align-items:center;gap:10px}
+.replay-board{width:min(100%,620px);max-width:620px;margin:0 auto}
+.replay-controls{width:min(100%,620px);display:flex;flex-direction:row;justify-content:center;align-items:center;gap:10px;margin:0 auto 12px}
+.replay-controls .icon-nav{width:48px;height:42px;min-width:48px;padding:0;display:grid;place-items:center;border:1px solid #52677f;border-radius:10px;background:#1b2b40;color:#edf3fa;font:700 17px 'DM Sans',sans-serif;cursor:pointer}
+.replay-controls .icon-nav:active{background:#314963;border-color:#c5e86c}
+.replay-controls .icon-nav:disabled{opacity:.3;cursor:not-allowed}
+.review-action{width:100%;display:flex;justify-content:space-between;align-items:center;gap:14px;margin:6px 0 14px}
+.review-action p{margin:5px 0 0}
+.review-action .primary-button{width:auto;min-width:190px;white-space:nowrap}
+#analysis-results{scroll-margin-top:14px}
+@media(max-width:650px){
+ .replay-board{width:100%;max-width:620px}
+ .replay-controls{display:flex;grid-template-columns:none;gap:8px}
+ .replay-controls .icon-nav{width:44px;height:40px;min-width:44px}
+ .review-action{align-items:stretch;flex-direction:column}
+ .review-action .primary-button{width:100%}
+}
