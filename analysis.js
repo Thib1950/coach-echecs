@@ -255,10 +255,10 @@ async function analyseSelectedGame(gameIdOverride,options={}){
       const winLossPercent=Math.max(0,winPercentBefore-winPercent(afterEval.scoreWhite*moverSign));
       const afterWinPercent=winPercent(afterEval.scoreWhite*moverSign);
       const quality=(i<10&&(game.eco||game.opening))?{label:"Théorie",kind:"book"}:classify(winLossPercent,playedUci===beforeEval.bestmove);
-      if(playedUci===beforeEval.bestmove&&((winPercentBefore<35&&afterWinPercent>=45)||(winPercentBefore>=45&&winPercentBefore<65&&afterWinPercent>=75))){quality.label="Grand coup";quality.kind="great";}
+      if(quality.kind!=="book"&&playedUci===beforeEval.bestmove&&((winPercentBefore<35&&afterWinPercent>=45)||(winPercentBefore>=45&&winPercentBefore<65&&afterWinPercent>=75))){quality.label="Grand coup";quality.kind="great";}
       const previousOpponentMove=report.positionDetails[report.positionDetails.length-1];
-      if(move.color===userSide&&previousOpponentMove&&previousOpponentMove.color!==userSide&&previousOpponentMove.winLossPercent>=10&&winLossPercent>=2){quality.label="Occasion manquée";quality.kind="miss";}
-      if(playedUci===beforeEval.bestmove&&isBrilliantSacrifice(beforeFen,playedUci,winLossPercent,beforeEval,afterEval)){quality.label="Coup brillant";quality.kind="brilliant";}
+      if(quality.kind!=="book"&&move.color===userSide&&previousOpponentMove&&previousOpponentMove.color!==userSide&&previousOpponentMove.winLossPercent>=10&&winLossPercent>=2){quality.label="Occasion manquée";quality.kind="miss";}
+      if(quality.kind!=="book"&&playedUci===beforeEval.bestmove&&isBrilliantSacrifice(beforeFen,playedUci,winLossPercent,beforeEval,afterEval)){quality.label="Coup brillant";quality.kind="brilliant";}
       Object.assign(detail,{afterEvalWhite:afterEval.scoreWhite,loss,winPercentBefore,winLossPercent,...quality});
       report.covered=i+1;
       report.depth=Math.max(report.depth,beforeEval.depth||0);
