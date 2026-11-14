@@ -1,8 +1,7 @@
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
 
 const $ = id => document.getElementById(id);
-const ENGINE_BASE = "https://cdn.jsdelivr.net/npm/stockfish@19.0.1/";
-let worker = null, engineReady = null, activeGameId = null, busy = false;
+let worker = null, engineReady = null, busy = false;
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const user = "gone_1950";
 
@@ -108,9 +107,17 @@ async function analyseSelectedGame(){
     if (!history.length) throw new Error("Aucun coup n'a pu être lu dans le PGN de cette partie.");
     const engine = await getEngine();
     const replay = new Chess(), report = {moves:[],depth:0,covered:0};
+    const userSide = (game.white || "").toLowerCase() === user ? "w" : "b";
     const maxPlies = Math.min(history.length, 80);
     for (let i=0;i<maxPlies;i++) {
       const move = history[i], before = replay.fen(), playedUci = uciMove(move);
+      if (move.color !== userSide) {
+        replay.move({from:move.from,to:move.to,promotion:move.promotion});
+        report.covered = i+1;
+        $("analysis-progress-fill").style.width = Math.round((i+1)/maxPlies*100)+"%";
+        $("analysis-progress-label").textContent = "Relecture de la partie : "+(i+1)+" / "+maxPlies+" demi-coups";
+        continue;
+      }
       const beforeEval = await evalPosition(engine,before);
       const bestSan = sanForUci(before,beforeEval.bestmove);
       replay.move({from:move.from,to:move.to,promotion:move.promotion});
@@ -129,7 +136,6 @@ async function analyseSelectedGame(){
     game.analysis = {date:new Date().toISOString(),moves:report.moves,covered:report.covered};
     window.CoachApp.saveGames();
     renderResults(game,report);
-    activeGameId = id;
     $("analysis-progress-label").textContent = "Analyse terminée.";
   } catch(error) {
     $("analysis-results").innerHTML = '<div class="empty-state">'+esc(error.message || "Une erreur est survenue pendant l'analyse.")+'</div>';
