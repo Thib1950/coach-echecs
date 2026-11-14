@@ -38,22 +38,22 @@ function render(){
   const wins=games.filter(g=>outcome(g)==="win").length, draws=games.filter(g=>outcome(g)==="draw").length, losses=games.filter(g=>outcome(g)==="loss").length;
   $("stat-games").textContent=games.length;$("stat-wins").textContent=wins;$("stat-draws").textContent=draws;$("stat-losses").textContent=losses;
   const decided=wins+draws+losses;$("stat-winrate").textContent=decided?Math.round((wins+draws/2)/decided*100)+" % de score":"En attente de tes parties";
-  $("sync-state").textContent="Version publiée · 14/11/2026";
+  $("sync-state").textContent="Version publiée · 14/11/2026 · v28";
   const sorted=[...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   $("recent-games").innerHTML=sorted.length?sorted.slice(0,4).map(recentGameHtml).join(""):'<div class="empty-state">Tes parties apparaîtront ici après l’import.</div>';
   renderGames(sorted);renderBars(wins,draws,losses);renderOpenings();renderTraining();
 }
 function gameHtml(g){
  const o=outcome(g),accuracy=g.analysis?.accuracy;
- const accuracyText=accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":"—";
+ const accuracyText=accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
  const side=userColor(g),opponentElo=side==="white"?g.blackElo:side==="black"?g.whiteElo:"";
- return '<div class="game-row"><div><div class="game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+' <span class="opponent-elo">'+(opponentElo?escapeHtml(opponentElo)+" Elo":"Elo —")+'</span></div><div class="game-meta">'+formatDate(g.date)+' · '+escapeHtml(g.timeControl||"Cadence inconnue")+(openingName(g)?" · "+escapeHtml(openingName(g)):"")+'</div><div class="game-elo"><span>Ma précision <b>'+accuracyText+'</b></span></div></div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="lesson-launch" data-open-game="'+escapeHtml(g.id)+'">Revoir / analyser →</button></div>';
+ return '<div class="game-row game-row-expanded"><div class="game-row-info"><div class="game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+' <span class="opponent-elo">'+(opponentElo?escapeHtml(opponentElo)+" Elo":"Elo —")+'</span></div><div class="game-meta">'+formatDate(g.date)+'</div><div class="game-elo"><span>Ma précision <b>'+accuracyText+'</b></span></div></div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="lesson-launch" data-open-game="'+escapeHtml(g.id)+'">Revoir / analyser →</button></div>';
 }
 function recentGameHtml(g){
  const side=userColor(g),opponentElo=side==="white"?g.blackElo:side==="black"?g.whiteElo:"";
  const accuracy=g.analysis?.accuracy;
- const accuracyText=accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":"—";
- return '<div class="recent-game-row"><div class="recent-game-main"><div class="recent-game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+' <span class="opponent-elo">'+(opponentElo?escapeHtml(opponentElo)+" Elo":"Elo —")+'</span></div><div class="recent-game-meta">'+formatDate(g.date)+' · '+escapeHtml(g.timeControl||"Cadence inconnue")+'</div></div><div class="recent-game-precision"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><button type="button" class="recent-review-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir cette partie">↗</button></div>';
+ const accuracyText=accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
+ return '<div class="recent-game-row"><div class="recent-game-main"><div class="recent-game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+' <span class="opponent-elo">'+(opponentElo?escapeHtml(opponentElo)+" Elo":"Elo —")+'</span></div><div class="recent-game-meta">'+formatDate(g.date)+'</div></div><div class="recent-game-precision"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><button type="button" class="recent-review-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir cette partie">↗</button></div>';
 }
 function renderGames(sorted){const q=($("game-search").value||"").toLowerCase(),f=$("result-filter").value;const filtered=sorted.filter(g=>(opponent(g)||"").toLowerCase().includes(q)&&(f==="all"||outcome(g)===f));$("games-list").innerHTML=filtered.length?filtered.map(gameHtml).join(""):'<div class="empty-state">Aucune partie ne correspond à ce filtre.</div>'}
 function renderBars(w,d,l){const n=w+d+l;if(!n){$("result-bars").innerHTML='<p class="muted">Les statistiques apparaîtront après l’import.</p>';return}const rows=[["Victoires",w],["Nulles",d],["Défaites",l]];$("result-bars").innerHTML=rows.map(([label,v])=>'<div class="bar-item"><span>'+label+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(v/n*100)+'%"></div></div><strong>'+v+'</strong></div>').join("")}
@@ -109,7 +109,7 @@ async function syncChessCom(){
     for(const url of urls){setMessage("Récupération de "+url.split("/").slice(-2).join("/")+"…");const res=await fetch(url,{headers:{"Accept":"application/json"}});if(!res.ok)continue;const data=await res.json();imported=imported.concat((data.games||[]).map(normalizeGame))}
     if(!imported.length)throw new Error("Aucune partie trouvée dans les trois dernières archives.");
     const byId=new Map(games.map(g=>[g.id,g]));imported.forEach(g=>byId.set(g.id,g));games=[...byId.values()].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-    saveGames();render();setMessage(imported.length+" parties récupérées ou actualisées. Les données sont conservées sur cet appareil.");$("sync-state").textContent="Version publiée · 14/11/2026";
+    saveGames();render();setMessage(imported.length+" parties récupérées ou actualisées. Les données sont conservées sur cet appareil.");$("sync-state").textContent="Version publiée · 14/11/2026 · v28";
   }catch(e){setMessage("La synchronisation automatique n'a pas abouti : "+e.message+". Tu peux importer un fichier PGN depuis Chess.com.")}
   finally{buttons.forEach((b,i)=>{b.disabled=false;b.textContent=i?"Synchroniser":"Récupérer mes parties"})}
 }
@@ -136,7 +136,7 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
 
 
 // Interface publique minimale pour le module d'analyse moteur.
-window.CoachApp = { getGames: () => games, saveGames: () => saveGames() };
+window.CoachApp = { getGames: () => games, saveGames: () => saveGames(), refresh: () => render() };
 const renderBeforeAnalysis = render;
 render = function(){ renderBeforeAnalysis(); window.dispatchEvent(new Event("coach:games-updated")); };
 render();
