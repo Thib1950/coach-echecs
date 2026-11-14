@@ -73,7 +73,7 @@ function groupOpenings(source){const groups=new Map();source.forEach(g=>{const n
 function render(){
   const wins=games.filter(g=>outcome(g)==="win").length, draws=games.filter(g=>outcome(g)==="draw").length, losses=games.filter(g=>outcome(g)==="loss").length;
   $("stat-games").textContent=games.length;$("stat-wins").textContent=wins;$("stat-losses").textContent=losses;
-  $("sync-state").textContent="Version publiée · 14/11/2026 · v32";
+  $("sync-state").textContent="Version publiée · 14/11/2026 · v34";
   const sorted=[...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   $("recent-games").innerHTML=sorted.length?sorted.slice(0,4).map(recentGameHtml).join(""):'<div class="empty-state">Tes parties apparaîtront ici après l’import.</div>';
   renderGames(sorted);renderBars(wins,draws,losses);renderOpenings();renderTraining();renderProgressStats(wins,draws,losses);hydratePlayerAvatars();
@@ -91,10 +91,10 @@ function recentGameHtml(g){
  return '<div class="recent-game-row"><div class="recent-game-main"><div class="player-line">'+avatarMarkup(opponent(g))+'<div class="recent-game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+'</div></div><div class="recent-game-meta">'+formatDate(g.date)+'</div></div><div class="recent-game-elo">'+(opponentElo?escapeHtml(opponentElo):"—")+'<small>ELO</small></div><div class="recent-game-precision"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><button type="button" class="recent-review-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir cette partie">↗</button></div>';
 }
 function renderGames(sorted){const q=($("game-search").value||"").toLowerCase(),f=$("result-filter").value;const filtered=sorted.filter(g=>(opponent(g)||"").toLowerCase().includes(q)&&(f==="all"||outcome(g)===f));$("games-list").innerHTML=filtered.length?filtered.map(gameHtml).join(""):'<div class="empty-state">Aucune partie ne correspond à ce filtre.</div>'}
-function renderBars(w,d,l){const n=w+d+l;if(!n){$("result-bars").innerHTML='<p class="muted">Les statistiques apparaîtront après l’import.</p>';return}const rows=[["Victoires",w],["Nulles",d],["Défaites",l]];$("result-bars").innerHTML=rows.filter(([,v])=>v>0).map(([label,v])=>'<div class="bar-item"><span>'+label+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(v/n*100)+'%"></div></div><strong>'+v+' · '+Math.round(v/n*100)+' %</strong></div>').join("")}
+function renderBars(w,d,l){const n=games.length;if(!n){$("result-bars").innerHTML='<p class="muted">Les statistiques apparaîtront après l’import.</p>';return}const known=w+d+l,rows=[["Victoires",w],["Nulles",d],["Défaites",l]];if(known<n)rows.push(["Non classées",n-known]);$("result-bars").innerHTML=rows.filter(([,v])=>v>0).map(([label,v])=>'<div class="bar-item"><span>'+label+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(v/n*100)+'%"></div></div><strong>'+v+' · '+Math.round(v/n*100)+' %</strong></div>').join("")}
 function renderOpenings(){/* Le répertoire est géré par openings.js, chargé uniquement à l'ouverture de l'onglet. */}
 
-function renderProgressStats(wins,draws,losses){const decided=wins+losses,rate=$("progress-win-rate");if(rate)rate.textContent=decided?Math.round(wins/decided*100)+" %":"—";const detail=$("progress-win-rate-detail");if(detail)detail.textContent=decided+" partie(s) gagnée(s) ou perdue(s)";const victories=games.filter(g=>outcome(g)==="win").map(g=>{const side=userColor(g),elo=Number(side==="white"?g.blackElo:g.whiteElo);return {elo,opponent:opponent(g)};}).filter(x=>Number.isFinite(x.elo)&&x.elo>0).sort((a,b)=>b.elo-a.elo);const best=$("progress-best-win-elo"),name=$("progress-best-win-opponent");if(best)best.textContent=victories.length?victories[0].elo:"—";if(name)name.textContent=victories.length?"Battue : "+victories[0].opponent:"Aucune victoire avec Elo connu";}
+function renderProgressStats(wins,draws,losses){const decided=wins+losses,rate=$("progress-win-rate");if(rate)rate.textContent=decided?Math.round(wins/decided*100)+" %":"—";const detail=$("progress-win-rate-detail");if(detail)detail.textContent=decided+" partie(s) gagnée(s) ou perdue(s)";const victories=games.filter(g=>outcome(g)==="win").map(g=>{const side=userColor(g),elo=Number(side==="white"?g.blackElo:g.whiteElo);return {elo,opponent:opponent(g)};}).filter(x=>Number.isFinite(x.elo)&&x.elo>0).sort((a,b)=>b.elo-a.elo);const best=$("progress-best-win-elo"),name=$("progress-best-win-opponent");if(best)best.textContent=victories.length?victories[0].elo:"—";if(name)name.textContent=victories.length?victories[0].opponent:"—";}
 
 function renderTraining(){
   const losses=games.filter(g=>outcome(g)==="loss").sort((a,b)=>(b.date||"").localeCompare(a.date||""));
@@ -136,7 +136,7 @@ async function syncChessCom(){
     for(const url of urls){setMessage("Récupération de "+url.split("/").slice(-2).join("/")+"…");const res=await fetch(url,{headers:{"Accept":"application/json"}});if(!res.ok)continue;const data=await res.json();imported=imported.concat((data.games||[]).map(normalizeGame))}
     if(!imported.length)throw new Error("Aucune partie trouvée dans les trois dernières archives.");
     const byId=new Map(games.map(g=>[g.id,g]));imported.forEach(g=>byId.set(g.id,g));games=[...byId.values()].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-    saveGames();render();setMessage(imported.length+" parties récupérées ou actualisées. Les données sont conservées sur cet appareil.");$("sync-state").textContent="Version publiée · 14/11/2026 · v32";
+    saveGames();render();setMessage(imported.length+" parties récupérées ou actualisées. Les données sont conservées sur cet appareil.");$("sync-state").textContent="Version publiée · 14/11/2026 · v34";
   }catch(e){setMessage("La synchronisation automatique n'a pas abouti : "+e.message+". Tu peux importer un fichier PGN depuis Chess.com.")}
   finally{buttons.forEach(b=>{b.disabled=false;b.textContent=b.id==="sync-button"?"Synchroniser les parties":"Synchroniser"})}
 }
