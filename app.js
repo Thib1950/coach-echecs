@@ -46,7 +46,7 @@ function render(){
 }
 function gameHtml(g){
  const o=outcome(g), accuracy=g.analysis?.partial?null:g.analysis?.accuracy;
- const accuracyText=Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.analysis?.partial?"Analyse en cours":"À analyser");
+ const accuracyText=accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.analysis?.partial?"Analyse en cours":"À analyser");
  const whiteElo=g.whiteElo||"—",blackElo=g.blackElo||"—";
  return '<div class="game-row"><div><div class="game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="game-meta">'+formatDate(g.date)+' · '+escapeHtml(g.timeControl||"Cadence inconnue")+(openingName(g)?" · "+escapeHtml(openingName(g)):"")+'</div><div class="game-elo"><span>Blancs <b>'+escapeHtml(whiteElo)+'</b></span><span>Noirs <b>'+escapeHtml(blackElo)+'</b></span><span>Précision <b>'+accuracyText+'</b></span></div></div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="lesson-launch" data-open-game="'+escapeHtml(g.id)+'">Revoir / analyser →</button></div>';
 }
@@ -69,7 +69,7 @@ function renderTraining(){
   const losses=games.filter(g=>outcome(g)==="loss").sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   const openings=groupOpenings(games);
   $("training-losses").textContent=losses.length;
-  const analyzed=games.filter(g=>!g.analysis?.partial&&Number.isFinite(Number(g.analysis?.accuracy)));
+  const analyzed=games.filter(g=>!g.analysis?.partial&&g.analysis?.accuracy!==null&&g.analysis?.accuracy!==undefined&&Number.isFinite(Number(g.analysis?.accuracy)));
   const averageAccuracy=analyzed.length?analyzed.reduce((sum,g)=>sum+Number(g.analysis.accuracy),0)/analyzed.length:null;
   const accuracyNode=$("training-accuracy");if(accuracyNode)accuracyNode.textContent=averageAccuracy===null?"—":Math.round(averageAccuracy)+" %";
   const accuracyCount=$("training-accuracy-count");if(accuracyCount)accuracyCount.textContent=analyzed.length+" partie(s) entièrement analysée(s)";
