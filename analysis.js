@@ -200,7 +200,7 @@ async function analyseSelectedGame(gameIdOverride){
       };
       report.positionDetails.push(detail);
       if(move.color===userSide)report.moves.push(detail);
-      report.covered=i;
+      report.covered=i+1;
       game.analysis={
         date:new Date().toISOString(),moves:report.moves,positions:report.positions,
         positionDetails:report.positionDetails,covered:report.covered,
