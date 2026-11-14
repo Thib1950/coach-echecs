@@ -35,7 +35,7 @@ function openingName(g){const name=(g.opening||"").trim();if(name)return name;co
 function positionWinPercent(cp){const x=Math.max(-1000,Math.min(1000,Number(cp)||0));return 50+50*(2/(1+Math.exp(-0.00368208*x))-1)}
 function gameAccuracy(g){
  const moves=(g.analysis?.moves||[]).filter(m=>m.evalWhite!==null&&m.evalWhite!==undefined&&m.afterEvalWhite!==null&&m.afterEvalWhite!==undefined&&Number.isFinite(Number(m.evalWhite))&&Number.isFinite(Number(m.afterEvalWhite))&&m.color);
- if(!moves.length)return typeof g.analysis?.accuracy==="number"?g.analysis.accuracy:null;
+ if(!moves.length)return null;
  const rows=moves.map(m=>{const sign=m.color==="w"?1:-1,before=positionWinPercent(Number(m.evalWhite)*sign),after=positionWinPercent(Number(m.afterEvalWhite)*sign),loss=Math.max(0,before-after),accuracy=loss<=0?100:Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*loss)-3.1669));return {accuracy,winBefore:before};});
  const size=Math.max(2,Math.min(8,Math.round(rows.length/10)));
  const weights=rows.map((row,i)=>{const from=Math.max(0,Math.min(i-size+1,rows.length-size)),window=rows.slice(from,from+Math.min(size,rows.length)),mean=window.reduce((sum,x)=>sum+x.winBefore,0)/window.length,deviation=Math.sqrt(window.reduce((sum,x)=>sum+(x.winBefore-mean)**2,0)/window.length);return Math.max(.5,Math.min(12,deviation));});
@@ -71,7 +71,7 @@ function renderOpenings(){/* Le répertoire est géré par openings.js, chargé 
 
 function renderTraining(){
   const losses=games.filter(g=>outcome(g)==="loss").sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-  const analyzed=games.filter(g=>!g.analysis?.partial&&Array.isArray(g.analysis?.moves)).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  const analyzed=games.filter(g=>!g.analysis?.partial&&Array.isArray(g.analysis?.moves)&&gameAccuracy(g)!==null).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   const accuracyForGroup=group=>{
     const values=group.map(gameAccuracy).filter(v=>typeof v==="number"&&Number.isFinite(v));
     return values.length?values.reduce((sum,value)=>sum+value,0)/values.length:null;
