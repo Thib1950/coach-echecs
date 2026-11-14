@@ -26,7 +26,7 @@ function getEngine(){
       // Précharge explicitement le JS et le WASM via le service worker.
       // Les deux ressources sont ensuite disponibles sous la même origine.
       for(const file of ["stockfish-19-lite-single.js","stockfish-19-lite-single.wasm"]){
-        const response=await fetch("./vendor/stockfish/"+file+"?build=24",{cache:"no-store"});
+        const response=await fetch("./vendor/stockfish/"+file+"?build=25",{cache:"no-store"});
         if(!response.ok){
           const detail=(await response.text()).slice(0,240);
           throw new Error("Téléchargement de "+file+" impossible (HTTP "+response.status+"). "+detail);
@@ -34,7 +34,7 @@ function getEngine(){
       }
       if(settled)return;
       stage="démarrage du Worker WebAssembly";
-      worker=new Worker("./vendor/stockfish/stockfish-19-lite-single.js?build=24");
+      worker=new Worker("./vendor/stockfish/stockfish-19-lite-single.js?build=25");
       worker.onmessage=event=>{
         const line=String(event.data||"").trim();
         if(line==="uciok"){
