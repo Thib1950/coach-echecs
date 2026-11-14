@@ -127,7 +127,7 @@ async function analyseSelectedGame(){
         loss = Math.max(0, beforeEval.score + afterEval.score);
       }
       const category = classify(loss);
-      report.moves.push({color:move.color,moveNo:Math.floor(i/2)+1,played:move.san,best:bestSan,loss,...category});
+      report.moves.push({fen:before,bestUci:beforeEval.bestmove,color:move.color,moveNo:Math.floor(i/2)+1,played:move.san,playedUci,best:bestSan,loss,...category});
       report.covered = i+1;
       $("analysis-progress-fill").style.width = Math.round((i+1)/maxPlies*100)+"%";
       $("analysis-progress-label").textContent = "Analyse des coups : "+(i+1)+" / "+maxPlies+" demi-coups";
