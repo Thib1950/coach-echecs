@@ -75,7 +75,7 @@ function renderTraining(){
     tips.push("Prochaine analyse : Stockfish examinera les coups pour repérer les gaffes, les occasions tactiques manquées et les erreurs de conversion. Ce calcul moteur n'est pas encore activé dans cette version.");
   }
   $("training-plan").innerHTML=tips.map((t,i)=>'<div class="recommendation-item"><span class="recommendation-number">0'+(i+1)+'</span><p>'+escapeHtml(t)+'</p></div>').join("");
-  $("training-games").innerHTML=losses.length?losses.slice(0,5).map(g=>'<div class="game-row"><div><div class="game-opponent">Défaite contre '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="game-meta">'+formatDate(g.date)+' · '+escapeHtml(g.timeControl||"Cadence inconnue")+(openingName(g)?" · "+escapeHtml(openingName(g)):"")+'</div></div>'+(g.url?'<a class="game-link" href="'+escapeHtml(g.url)+'" target="_blank" rel="noopener">Revoir ↗</a>':'<span class="game-result loss">À revoir</span>')+'</div>').join(""):'<div class="empty-state">Aucune défaite enregistrée dans les parties importées.</div>';
+  $("training-games").innerHTML=losses.length?losses.slice(0,5).map(g=>'<div class="game-row"><div><div class="game-opponent">Défaite contre '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="game-meta">'+formatDate(g.date)+' · '+escapeHtml(g.timeControl||"Cadence inconnue")+(openingName(g)?" · "+escapeHtml(openingName(g)):"")+'</div></div>'+'<span class="game-result loss">À travailler dans le coach</span>'+'</div>').join(""):'<div class="empty-state">Aucune défaite enregistrée dans les parties importées.</div>';
 }
 async function syncChessCom(){
   const buttons=[$("sync-button"),$("sync-button-games")];buttons.forEach(b=>{b.disabled=true;b.textContent="Synchronisation…"});
