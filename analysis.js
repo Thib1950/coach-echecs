@@ -7,16 +7,34 @@ const user = "gone_1950";
 
 
 function getEngine(){
-  if(engineReady) return engineReady;
+  if(engineReady)return engineReady;
   engineReady=new Promise((resolve,reject)=>{
-    try{
-      // Même méthode que OpenChess : le worker Stockfish est chargé directement
-      // depuis un fichier de même origine, et non via importScripts depuis un CDN.
+    let stage="téléchargement des fichiers Stockfish 19 Lite";
+    let settled=false;
+    const timer=setTimeout(()=>{
+      if(worker){try{worker.terminate();}catch{} worker=null;}
+      settled=true;
+      reject(new Error("Délai dépassé pendant le "+stage+". Le moteur n'a pas pu être initialisé."));
+    },90000);
+    const fail=error=>{
+      if(settled)return;
+      settled=true;
+      clearTimeout(timer);
+      reject(error instanceof Error?error:new Error(String(error)));
+    };
+    (async()=>{
+      // Précharge explicitement le JS et le WASM via le service worker.
+      // Les deux ressources sont ensuite disponibles sous la même origine.
+      for(const file of ["stockfish-19-lite-single.js","stockfish-19-lite-single.wasm"]){
+        const response=await fetch("./vendor/stockfish/"+file+"?build=24",{cache:"no-store"});
+        if(!response.ok){
+          const detail=(await response.text()).slice(0,240);
+          throw new Error("Téléchargement de "+file+" impossible (HTTP "+response.status+"). "+detail);
+        }
+      }
+      if(settled)return;
+      stage="démarrage du Worker WebAssembly";
       worker=new Worker("./vendor/stockfish/stockfish-19-lite-single.js?build=24");
-      let stage="chargement du moteur Stockfish 19 Lite (WebAssembly)";
-      const timer=setTimeout(()=>{
-        reject(new Error("Stockfish ne répond pas à l’étape : "+stage+". Vérifie que le téléchargement du moteur est terminé puis réessaie."));
-      },90000);
       worker.onmessage=event=>{
         const line=String(event.data||"").trim();
         if(line==="uciok"){
@@ -24,6 +42,8 @@ function getEngine(){
           $("engine-status").textContent="Moteur téléchargé · initialisation…";
           worker.postMessage("isready");
         }else if(line==="readyok"){
+          if(settled)return;
+          settled=true;
           clearTimeout(timer);
           $("engine-status").textContent="Stockfish 19 prêt";
           $("engine-status").classList.add("ready");
@@ -31,19 +51,14 @@ function getEngine(){
         }
       };
       worker.onerror=event=>{
-        clearTimeout(timer);
         event.preventDefault?.();
-        const detail=[event.message,event.filename,event.lineno?"ligne "+event.lineno:""].filter(Boolean).join(" · ");
-        reject(new Error("Échec du chargement de Stockfish WebAssembly"+(detail?" : "+detail:". Le fichier local ou son téléchargement est inaccessible.")));
+        fail(new Error("Échec du chargement de Stockfish WebAssembly"+(event.message?" : "+event.message:".")));
       };
-      worker.onmessageerror=()=>{
-        clearTimeout(timer);
-        reject(new Error("Stockfish a envoyé une réponse illisible au navigateur."));
-      };
-      $("engine-status").textContent="Téléchargement du moteur Stockfish…";
+      worker.onmessageerror=()=>fail(new Error("Stockfish a envoyé une réponse illisible au navigateur."));
+      $("engine-status").textContent="Stockfish téléchargé · démarrage du moteur…";
       stage="attente de la réponse UCI (uciok)";
       worker.postMessage("uci");
-    }catch(error){reject(error);}
+    })().catch(fail);
   });
   return engineReady;
 }
