@@ -23,14 +23,6 @@
       <div class="profile-chip"><span class="online-dot"></span><span id="account-name">gone_1950</span><span class="chip-label">CHESS.COM</span></div>
     </header>
     <main>
-      <section class="welcome">
-        <div>
-          <p class="eyebrow">TON ESPACE D'ENTRAÎNEMENT</p>
-          <h1>On progresse <em>un coup à la fois.</em></h1>
-          <p class="welcome-copy">Tes parties, tes habitudes et tes prochains objectifs réunis au même endroit.</p>
-        </div>
-        <div class="welcome-piece" aria-hidden="true">♞</div>
-      </section>
       <nav class="tabs" aria-label="Navigation principale">
         <button class="tab active" data-tab="dashboard">Vue d'ensemble</button>
         <button class="tab" data-tab="games">Mes parties</button>
@@ -40,8 +32,16 @@
       </nav>
 
       <section class="panel active" id="panel-dashboard">
+      <section class="welcome">
+        <div>
+          <p class="eyebrow">TON ESPACE D'ENTRAÎNEMENT</p>
+          <h1>On progresse <em>un coup à la fois.</em></h1>
+          <p class="welcome-copy">Tes parties, tes habitudes et tes prochains objectifs réunis au même endroit.</p>
+        </div>
+        <div class="welcome-piece" aria-hidden="true">♞</div>
+      </section>
         <div class="section-heading dashboard-heading"><div><p class="eyebrow">TABLEAU DE BORD</p><h2>Salut, gone_1950 👋</h2></div></div>
-        <div class="dashboard-toolbar"><div class="dashboard-toolbar-right"><span class="sync-state" id="sync-state">Version publiée · 14/11/2026 · v31</span><div class="button-row"><button class="primary-button" id="sync-button">Synchroniser les parties</button><label class="secondary-button file-button">Importer un PGN<input type="file" id="pgn-file" accept=".pgn,text/plain" hidden></label></div></div></div>
+        <div class="dashboard-toolbar"><div class="dashboard-toolbar-right"><div class="button-row"><button class="primary-button" id="sync-button">Synchroniser les parties</button><label class="secondary-button file-button">Importer un PGN<input type="file" id="pgn-file" accept=".pgn,text/plain" hidden></label></div><span class="sync-state" id="sync-state">Version publiée · 14/11/2026 · v32</span></div></div>
         <p class="small muted dashboard-sync-message" id="sync-message" aria-live="polite"></p>
         <div class="stats-grid dashboard-stats"><article class="stat-card"><span class="stat-label">PARTIES IMPORTÉES</span><strong id="stat-games">0</strong></article><article class="stat-card stat-win"><span class="stat-label">VICTOIRES</span><strong id="stat-wins">0</strong></article><article class="stat-card stat-loss"><span class="stat-label">DÉFAITES</span><strong id="stat-losses">0</strong></article></div>
         <article class="surface recent-surface"><div class="surface-heading"><div><p class="eyebrow">ACTIVITÉ RÉCENTE</p><h3>Dernières parties</h3></div><button class="text-button" data-goto="games">Tout voir →</button></div><div id="recent-games" class="empty-state">Tes parties apparaîtront ici après l'import.</div><p id="accuracy-queue-status" class="small muted" aria-live="polite"></p></article>
@@ -82,7 +82,7 @@
         <div class="progress-kpis"><article class="training-kpi"><span>TAUX DE VICTOIRE</span><strong id="progress-win-rate">—</strong><small id="progress-win-rate-detail">Sur les parties décidées</small></article><article class="training-kpi"><span>PLUS HAUT ELO BATTU</span><strong id="progress-best-win-elo">—</strong><small id="progress-best-win-opponent">Adversaire le mieux classé battu</small></article></div><div class="content-grid"><article class="surface"><h3>Résultats des parties importées</h3><div id="result-bars" class="bar-list"><p class="muted">Les statistiques apparaîtront après l’import.</p></div></article></div>
       </section>
     </main>
-    <footer><span>MON COACH D'ÉCHECS</span><span>Version publiée · 14/11/2026 · v31</span></footer>
+    <footer><span>MON COACH D'ÉCHECS</span><span>Version publiée · 14/11/2026 · v32</span></footer>
   </div>
   <script src="app.js"></script>
   <script type="module" src="review.js"></script>
