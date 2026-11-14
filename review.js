@@ -71,7 +71,7 @@ function coachMessage(detail){
    }
   }catch{}
  }
- if(detail.kind==="book"&&(active?.opening||active?.displayOpening)){const opening=frenchOpeningName(active.opening||active.displayOpening);return {title:"Ouverture conseillée",body:opening,tip:""};}
+ // Même pendant la théorie, le coach explique le coup et son idée au lieu de répéter le nom de l’ouverture.
  let body;
  if(loss<15){
   body=detail.bestUci===detail.playedUci?"Tu as trouvé le meilleur coup. "+idea:"Ton coup "+played+" reste jouable, mais le meilleur choix était "+(detail.best||"le coup indiqué")+". "+idea;
