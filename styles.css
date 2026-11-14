@@ -70,3 +70,34 @@ html,body,button,a,input,select{touch-action:manipulation}
 
 /* Évite le zoom par double-tape sur l'échiquier sans désactiver le zoom par pincement. */
 .replay-board,.replay-square,.replay-controls{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+
+/* Barre d'évaluation, variantes cliquables et surbrillance de cases */
+.replay-board-wrap{display:flex;align-items:stretch;gap:11px;width:min(100%,690px);margin:0 auto}
+.replay-board-wrap .replay-board{flex:1;min-width:0;width:auto;max-width:620px;margin:0}
+.eval-column{width:46px;flex:0 0 46px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.eval-score{font:800 12px Manrope;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+.eval-bar-track{width:23px;flex:1;min-height:190px;display:flex;flex-direction:column;overflow:hidden;border:1px solid #526176;border-radius:6px;background:#202a38}
+.eval-black{width:100%;background:#263344;flex:0 0 auto;transition:height .18s ease}
+.eval-white{width:100%;background:#f0eadb;flex:0 0 auto;transition:height .18s ease}
+.eval-label{font-size:8px;line-height:1.2;text-align:center;color:var(--muted);max-width:48px}
+.eval-perspective{font-size:8px;color:var(--muted)}
+.pv-panel{margin-top:12px;padding:13px;border:1px solid #40566d;border-radius:10px;background:#142237}
+.pv-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+.pv-heading strong{font:700 12px Manrope;color:#b8f18a}
+.pv-heading span{font-size:10px;color:var(--muted)}
+.pv-moves{display:flex;flex-wrap:wrap;gap:6px}
+.pv-step{border:1px solid #435870;border-radius:7px;background:#1b2b40;color:#e5edf6;padding:7px 9px;font:600 11px 'DM Sans';cursor:pointer}
+.pv-step.active{border-color:var(--green);background:#263b27;color:#d9f4a5}
+.pv-step:active{transform:translateY(1px)}
+.replay-square.pv-highlight{box-shadow:inset 0 0 0 3px #68b7ff}
+.replay-square.manual-highlight{box-shadow:inset 0 0 0 4px #f4d35e;filter:brightness(1.12)}
+.clear-highlights{margin:5px 0 8px;align-self:flex-start;border:1px solid #52677f;border-radius:8px;background:#1b2b40;color:#e5edf6;padding:8px 11px;font:600 10px 'DM Sans';cursor:pointer}
+@media(max-width:650px){
+ .replay-board-wrap{width:100%;gap:7px}
+ .eval-column{width:38px;flex-basis:38px}
+ .eval-bar-track{width:19px;min-height:150px}
+ .eval-score{font-size:11px}
+ .pv-heading{align-items:flex-start;flex-direction:column}
+ .pv-step{padding:7px 8px}
+}
