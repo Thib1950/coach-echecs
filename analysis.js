@@ -190,10 +190,9 @@ async function analyseSelectedGame(gameIdOverride){
     }
     evaluations.push(await evalPosition(engine,replay.fen()));
     report.positions=evaluations.map(item=>item.scoreWhite);
+    report.positionDetails=[];
     for(let i=0;i<maxPlies;i++){
-      const move=history[i];
-      if(move.color!==userSide)continue;
-      const beforeEval=evaluations[i],afterEval=evaluations[i+1];
+      const move=history[i],beforeEval=evaluations[i],afterEval=evaluations[i+1];
       const fen=new Chess();
       for(let j=0;j<i;j++)fen.move({from:history[j].from,to:history[j].to,promotion:history[j].promotion});
       const beforeFen=fen.fen(),playedUci=uciMove(move);
@@ -201,16 +200,18 @@ async function analyseSelectedGame(gameIdOverride){
       const moverSign=move.color==="w"?1:-1;
       const loss=beforeEval.bestmove===playedUci?0:Math.max(0,moverSign*(beforeEval.scoreWhite-afterEval.scoreWhite));
       const category=classify(loss);
-      report.moves.push({
+      const detail={
         fen:beforeFen,bestUci:beforeEval.bestmove,pvUci:beforeEval.pv,
         pvSan:pvToSan(beforeFen,beforeEval.pv,8),
         evalWhite:beforeEval.scoreWhite,afterEvalWhite:afterEval.scoreWhite,
         color:move.color,ply:i,moveNo:Math.floor(i/2)+1,
         played:move.san,playedUci,best:bestSan,loss,...category
-      });
+      };
+      report.positionDetails.push(detail);
+      if(move.color===userSide)report.moves.push(detail);
     }
     report.depth=maxPlies;
-    game.analysis = {date:new Date().toISOString(),moves:report.moves,positions:report.positions,covered:report.covered};
+    game.analysis = {date:new Date().toISOString(),moves:report.moves,positions:report.positions,positionDetails:report.positionDetails,covered:report.covered};
     window.CoachApp.saveGames();
     renderResults(game,report);
     $("analysis-progress-fill").style.width = "100%"; $("analysis-progress-label").textContent = "Analyse terminée en "+elapsedText(startedAt)+".";
