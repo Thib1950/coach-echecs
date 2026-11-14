@@ -101,19 +101,19 @@ function open(id){
  const game=(window.CoachApp?.getGames?.()||[]).find(g=>String(g.id)===String(id));
  if(!game){$("game-replay-area").innerHTML='<div class="empty-state">Partie introuvable dans les données de cet appareil.</div>';return false;}
  if(!game.pgn){$("game-replay-area").innerHTML='<div class="empty-state">Le PGN de cette partie est absent. Réimporte-la pour la rejouer.</div>';return false;}
- try{const c=new Chess();c.loadPgn(game.pgn);moves=c.history({verbose:true});if(!moves.length)throw new Error("Aucun coup lisible dans le PGN.");active=game;index=0;analysisMoves=game.analysis?.moves||[];activeAnalysisMove=null;variationIndex=0;freeBoard=null;freeSelected=null;manualHighlights.clear();const s=$("analysis-game-select");if(s)s.value=String(game.id);$("analysis-results").innerHTML='<div class="empty-state compact">La relecture est prête. Parcours les coups, puis lance l’analyse moteur pour obtenir les meilleurs coups.</div>';$("lesson-area").innerHTML="";render();$("active-game-review")?.scrollIntoView({behavior:"smooth",block:"start"});return true;}
+ try{const c=new Chess();c.loadPgn(game.pgn);moves=c.history({verbose:true});if(!moves.length)throw new Error("Aucun coup lisible dans le PGN.");active=game;index=0;analysisMoves=game.analysis?.moves||[];activeAnalysisMove=null;variationIndex=0;freeBoard=null;freeSelected=null;freeRedo=[];manualHighlights.clear();const s=$("analysis-game-select");if(s)s.value=String(game.id);$("analysis-results").innerHTML='<div class="empty-state compact">La relecture est prête. Parcours les coups, puis lance l’analyse moteur pour obtenir les meilleurs coups.</div>';$("lesson-area").innerHTML="";render();$("active-game-review")?.scrollIntoView({behavior:"smooth",block:"start"});return true;}
  catch(e){$("game-replay-area").innerHTML='<div class="empty-state">Impossible de lire cette partie : '+esc(e.message)+'</div>';return false;}
 }
 function setAnalysis(list,game){
  if(game)active=game;
  analysisMoves=list||[];
- activeAnalysisMove=null;variationIndex=0;freeBoard=null;freeSelected=null;manualHighlights.clear();
+ activeAnalysisMove=null;variationIndex=0;freeBoard=null;freeSelected=null;freeRedo=[];manualHighlights.clear();
  if(active)active.analysis=active.analysis||{};
  if(active)index=0;
  render();
 }
 function showAnalysisMove(move){
- activeAnalysisMove=move;index=move.ply;variationIndex=0;freeBoard=null;freeSelected=null;render();
+ activeAnalysisMove=move;index=move.ply;variationIndex=0;freeBoard=null;freeSelected=null;freeRedo=[];render();
  $("active-game-review")?.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 let moveAudioContext=null;
@@ -140,20 +140,21 @@ function handleFreeSquare(square){
  if(piece&&piece.color===freeBoard.turn()){freeSelected=sq;render();return;}
  const legal=freeBoard.moves({square:freeSelected,verbose:true}).find(m=>m.to===sq);
  if(!legal){freeSelected=null;render();return;}
- try{freeBoard.move({from:freeSelected,to:sq,promotion:"q"});freeSelected=null;playMoveSound(1,!!legal.captured);render();}
+ try{freeBoard.move({from:freeSelected,to:sq,promotion:"q"});freeRedo=[];freeSelected=null;playMoveSound(1,!!legal.captured);render();}
  catch{freeSelected=null;render();}
 }
 document.addEventListener("click",e=>{
  const pvStep=e.target.closest("[data-pv-step]");
- if(pvStep&&currentDetail()&&!freeBoard){variationIndex=Math.max(0,Math.min((activeAnalysisMove.pvUci||[]).length,Number(pvStep.dataset.pvStep)||0));render();return;}
+ if(pvStep&&currentDetail()&&!freeBoard){variationIndex=Math.max(0,Math.min((currentDetail()?.pvUci||[]).length,Number(pvStep.dataset.pvStep)||0));render();return;}
  if(e.target.closest("[data-free-start]")){
-  const displayed=new Chess();if(activeAnalysisMove&&variationIndex>0){displayed.load(activeAnalysisMove.fen);for(const uci of (activeAnalysisMove.pvUci||[]).slice(0,variationIndex))displayed.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]});}
+  const displayed=new Chess();if(currentDetail()&&variationIndex>0){displayed.load(currentDetail().fen);for(const uci of (currentDetail().pvUci||[]).slice(0,variationIndex))displayed.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]});}
   else{for(let i=0;i<index;i++){const m=moves[i];displayed.move({from:m.from,to:m.to,promotion:m.promotion});}}
-  freeStartFen=displayed.fen();freeBoard=displayed;freeSelected=null;render();return;
+  freeStartFen=displayed.fen();freeBoard=displayed;freeSelected=null;freeRedo=[];render();return;
  }
- if(e.target.closest("[data-free-undo]")&&freeBoard){freeBoard.undo();freeSelected=null;render();return;}
- if(e.target.closest("[data-free-reset]")&&freeBoard){freeBoard=new Chess(freeStartFen);freeSelected=null;render();return;}
- if(e.target.closest("[data-free-exit]")){freeBoard=null;freeSelected=null;render();return;}
+ if(e.target.closest("[data-free-undo]")&&freeBoard){const undone=freeBoard.undo();if(undone)freeRedo.push({from:undone.from,to:undone.to,promotion:undone.promotion});freeSelected=null;render();return;}
+ if(e.target.closest("[data-free-reset]")&&freeBoard){freeBoard=new Chess(freeStartFen);freeRedo=[];freeSelected=null;render();return;}
+ if(e.target.closest("[data-free-redo]")&&freeBoard&&freeRedo.length){const m=freeRedo.pop();freeBoard.move(m);freeSelected=null;render();return;}
+ if(e.target.closest("[data-free-exit]")){freeBoard=null;freeRedo=[];freeSelected=null;render();return;}
  if(e.target.closest("[data-clear-highlights]")){manualHighlights.clear();render();return;}
  const square=e.target.closest(".replay-square[data-square]");
  if(square&&active){if(freeBoard){handleFreeSquare(square);return;}const name=square.dataset.square;if(manualHighlights.has(name))manualHighlights.delete(name);else manualHighlights.add(name);render();return;}
