@@ -23,13 +23,38 @@ async function loadDatabase(){
  }catch(e){dbError=e.message||"Chargement impossible";dbReady=true;}
 }
 function gameMoves(game){try{const c=new Chess();c.loadPgn(game.pgn||"");return c.history({verbose:true}).map(m=>m.from+m.to+(m.promotion||""));}catch{return [];}}
+function validEco(value){const m=String(value||"").match(/\\b([A-E]\\d{2})\\b/i);return m?m[1].toUpperCase():"";}
+function compatibleEco(name,eco){
+ if(!eco)return false;
+ const n=String(name||"").toLowerCase();
+ if(n.includes("french"))return /^C(0[0-9]|1[0-9])$/.test(eco);
+ if(n.includes("sicilian"))return /^B(2[0-9]|3[0-9])$/.test(eco);
+ if(n.includes("caro-kann"))return /^B1[0-9]$/.test(eco);
+ if(n.includes("ruy lopez")||n.includes("spanish"))return /^C[6-9][0-9]$/.test(eco);
+ if(n.includes("italian"))return /^C5[0-9]$/.test(eco);
+ return true;
+}
 function classify(game){
  const moves=gameMoves(game);let best=null;
- for(const item of database){if(!item.moves.length||item.moves.length>(moves.length))continue;let ok=true;for(let i=0;i<item.moves.length;i++)if(item.moves[i]!==moves[i]){ok=false;break;}if(ok&&(!best||item.moves.length>best.moves.length))best=item;}
+ for(const item of database){
+  if(!item.moves.length||item.moves.length>moves.length)continue;
+  let ok=true;
+  for(let i=0;i<item.moves.length;i++)if(item.moves[i]!==moves[i]){ok=false;break;}
+  if(ok&&(!best||item.moves.length>best.moves.length))best=item;
+ }
  if(best)return {...best,display:frenchName(best.name),source:"database"};
- if(game.opening&&game.opening.trim())return {eco:game.eco||"",name:game.opening,display:frenchName(game.opening),moves:[],pgn:"",source:"pgn"};
- if(game.eco){const candidates=database.filter(x=>x.eco===game.eco).sort((a,b)=>b.moves.length-a.moves.length);if(candidates[0])return {...candidates[0],display:frenchName(candidates[0].name),source:"eco"};}
- return {eco:game.eco||"",name:"Ouverture non classée",display:game.eco?"Ouverture non classée · "+game.eco:"Ouverture non identifiée",moves:[],pgn:"",source:"unknown"};
+ const headerName=(game.opening||"").trim(),eco=validEco(game.eco);
+ if(headerName){
+  const candidates=database.filter(x=>x.name.toLowerCase()===headerName.toLowerCase());
+  const headerEco=candidates.find(x=>compatibleEco(headerName,x.eco))?.eco||"";
+  const safeEco=compatibleEco(headerName,eco)?eco:headerEco;
+  return {eco:safeEco,name:headerName,display:frenchName(headerName),moves:[],pgn:"",source:"pgn"};
+ }
+ if(eco){
+  const candidates=database.filter(x=>x.eco===eco).sort((a,b)=>b.moves.length-a.moves.length);
+  if(candidates[0])return {...candidates[0],display:frenchName(candidates[0].name),source:"eco"};
+ }
+ return {eco:"",name:"Ouverture non classée",display:"Ouverture non identifiée",moves:[],pgn:"",source:"unknown"};
 }
 function result(g){const white=(g.white||"").toLowerCase()===USER,black=(g.black||"").toLowerCase()===USER;if(g.result==="1/2-1/2")return "draw";if((white&&g.result==="1-0")||(black&&g.result==="0-1"))return "win";if((white&&g.result==="0-1")||(black&&g.result==="1-0"))return "loss";return "unknown";}
 function buildGroups(){
