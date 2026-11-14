@@ -32,6 +32,13 @@ function formatDate(d){if(!d)return "Date inconnue";const [y,m,day]=d.split(".")
 function resultLabel(o){return o==="win"?"Victoire":o==="loss"?"Défaite":o==="draw"?"Nulle":"Résultat inconnu"}
 function opponent(g){return (g.white||"").toLowerCase()===USERNAME.toLowerCase()?g.black:g.white}
 function openingName(g){const name=(g.opening||"").trim();if(name)return name;const eco=(g.eco||"").trim();return eco?"Code ECO "+eco:""}
+function positionWinPercent(cp){const x=Math.max(-1000,Math.min(1000,Number(cp)||0));return 50+50*(2/(1+Math.exp(-0.00368208*x))-1)}
+function gameAccuracy(g){
+ const moves=(g.analysis?.moves||[]).filter(m=>Number.isFinite(Number(m.evalWhite))&&Number.isFinite(Number(m.afterEvalWhite))&&m.color);
+ if(!moves.length)return typeof g.analysis?.accuracy==="number"?g.analysis.accuracy:null;
+ const values=moves.map(m=>{const sign=m.color==="w"?1:-1;const loss=Math.max(0,positionWinPercent(Number(m.evalWhite)*sign)-positionWinPercent(Number(m.afterEvalWhite)*sign));return loss<=0?100:Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*loss)-3.1669));});
+ const safe=values.map(v=>Math.max(.1,v));return Math.round(safe.length/safe.reduce((sum,v)=>sum+1/v,0));
+}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function groupOpenings(source){const groups=new Map();source.forEach(g=>{const name=openingName(g);if(!name)return;const key=name; if(!groups.has(key))groups.set(key,{name,games:[],wins:0,draws:0,losses:0,white:0,black:0});const x=groups.get(key);x.games.push(g);const o=outcome(g);if(o==="win")x.wins++;if(o==="draw")x.draws++;if(o==="loss")x.losses++;if(userColor(g)==="white")x.white++;if(userColor(g)==="black")x.black++});return [...groups.values()].map(x=>({...x,count:x.games.length,score:(x.wins+x.draws/2)/(x.wins+x.draws+x.losses||1)*100})).sort((a,b)=>b.count-a.count)}
 function render(){
@@ -43,14 +50,14 @@ function render(){
   renderGames(sorted);renderBars(wins,draws,losses);renderOpenings();renderTraining();
 }
 function gameHtml(g){
- const o=outcome(g),accuracy=g.analysis?.accuracy;
+ const o=outcome(g),accuracy=gameAccuracy(g);
  const accuracyText=!g.analysis?.partial&&accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
  const side=userColor(g),opponentElo=side==="white"?g.blackElo:side==="black"?g.whiteElo:"";
  return '<div class="game-row game-row-expanded"><div class="game-row-info"><div class="game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="game-meta">'+formatDate(g.date)+'</div></div><div class="game-list-accuracy"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="analysis-icon-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir et analyser cette partie" title="Revoir et analyser cette partie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg></button></div>';
 }
 function recentGameHtml(g){
  const side=userColor(g),opponentElo=side==="white"?g.blackElo:side==="black"?g.whiteElo:"";
- const accuracy=g.analysis?.accuracy;
+ const accuracy=gameAccuracy(g);
  const accuracyText=!g.analysis?.partial&&accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
  return '<div class="recent-game-row"><div class="recent-game-main"><div class="recent-game-opponent">vs '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="recent-game-meta">'+formatDate(g.date)+'</div></div><div class="recent-game-elo">'+(opponentElo?escapeHtml(opponentElo):"—")+'<small>ELO</small></div><div class="recent-game-precision"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><button type="button" class="recent-review-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir cette partie">↗</button></div>';
 }
@@ -73,7 +80,7 @@ function renderTraining(){
   const losses=games.filter(g=>outcome(g)==="loss").sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   const analyzed=games.filter(g=>!g.analysis?.partial&&Array.isArray(g.analysis?.moves)).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   const accuracyForGroup=group=>{
-    const values=group.map(g=>g.analysis?.accuracy).filter(v=>typeof v==="number"&&Number.isFinite(v));
+    const values=group.map(gameAccuracy).filter(v=>typeof v==="number"&&Number.isFinite(v));
     return values.length?values.reduce((sum,value)=>sum+value,0)/values.length:null;
   };
   const recentCount=Math.min(10,Math.ceil(analyzed.length/2));
