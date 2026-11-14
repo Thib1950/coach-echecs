@@ -67,19 +67,8 @@ function recentGameHtml(g){
 }
 function renderGames(sorted){const q=($("game-search").value||"").toLowerCase(),f=$("result-filter").value;const filtered=sorted.filter(g=>(opponent(g)||"").toLowerCase().includes(q)&&(f==="all"||outcome(g)===f));$("games-list").innerHTML=filtered.length?filtered.map(gameHtml).join(""):'<div class="empty-state">Aucune partie ne correspond à ce filtre.</div>'}
 function renderBars(w,d,l){const n=w+d+l;if(!n){$("result-bars").innerHTML='<p class="muted">Les statistiques apparaîtront après l’import.</p>';return}const rows=[["Victoires",w],["Nulles",d],["Défaites",l]];$("result-bars").innerHTML=rows.map(([label,v])=>'<div class="bar-item"><span>'+label+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(v/n*100)+'%"></div></div><strong>'+v+'</strong></div>').join("")}
-function renderOpenings(){
-  const all=groupOpenings(games), qualified=all.filter(x=>x.wins+x.draws+x.losses>0);
-  $("opening-count").textContent=all.length;
-  const main=all[0];$("opening-main").textContent=main?main.name:"—";$("opening-main-count").textContent=main?main.count+" partie(s)":"Aucune ouverture identifiée";
-  const best=qualified.filter(x=>x.count>=3).sort((a,b)=>b.score-a.score)[0];$("opening-best").textContent=best?Math.round(best.score)+" %":"—";$("opening-best-name").textContent=best?best.name:"Minimum 3 parties pour comparer";
-  drawOpeningTable();
-}
-function drawOpeningTable(){
-  const color=$("opening-color-filter").value;let data=groupOpenings(games);
-  if(color!=="all")data=data.map(x=>{const selected=x.games.filter(g=>userColor(g)===color);const wins=selected.filter(g=>outcome(g)==="win").length,draws=selected.filter(g=>outcome(g)==="draw").length,losses=selected.filter(g=>outcome(g)==="loss").length;return {...x,count:selected.length,wins,draws,losses,score:(wins+draws/2)/(wins+draws+losses||1)*100}}).filter(x=>x.count);
-  if(!data.length){$("opening-table").innerHTML='<div class="empty-state">Aucune ouverture identifiée dans les PGN importés. Les parties restent bien enregistrées ; certaines archives ne fournissent simplement pas le nom de l’ouverture.</div>';return}
-  $("opening-table").innerHTML='<div class="opening-head"><span>OUVERTURE</span><span>PARTIES</span><span>V / N / D</span><span>SCORE</span></div>'+data.slice(0,25).map(x=>'<div class="opening-row"><strong>'+escapeHtml(x.name)+'</strong><span>'+x.count+'</span><span>'+x.wins+' / '+x.draws+' / '+x.losses+'</span><span class="score-cell">'+Math.round(x.score)+' %</span></div>').join("");
-}
+function renderOpenings(){/* Le répertoire est géré par openings.js, chargé uniquement à l'ouverture de l'onglet. */}
+
 function renderTraining(){
   const losses=games.filter(g=>outcome(g)==="loss").sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   const analyzed=games.filter(g=>!g.analysis?.partial&&Array.isArray(g.analysis?.moves)).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
@@ -132,7 +121,7 @@ document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>
  if(btn.dataset.tab==="openings"&&!openingsModuleLoaded){openingsModuleLoaded=true;import("./openings.js").catch(error=>{openingsModuleLoaded=false;console.error(error);$("opening-table").innerHTML='<div class="empty-state">Impossible de charger le module des ouvertures. Réessaie en ouvrant cet onglet.</div>';});}
 }));
 document.querySelectorAll("[data-goto]").forEach(btn=>btn.addEventListener("click",()=>document.querySelector('[data-tab="'+btn.dataset.goto+'"]').click()));
-$("sync-button").addEventListener("click",syncChessCom);$("sync-button-games").addEventListener("click",syncChessCom);$("pgn-file").addEventListener("change",e=>importPgnFile(e.target.files[0]));$("game-search").addEventListener("input",()=>renderGames([...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""))));$("result-filter").addEventListener("change",()=>renderGames([...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""))));$("opening-color-filter").addEventListener("change",drawOpeningTable);
+$("sync-button").addEventListener("click",syncChessCom);$("sync-button-games").addEventListener("click",syncChessCom);$("pgn-file").addEventListener("change",e=>importPgnFile(e.target.files[0]));$("game-search").addEventListener("input",()=>renderGames([...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""))));$("result-filter").addEventListener("change",()=>renderGames([...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""))));
 document.addEventListener("click",e=>{const b=e.target.closest("[data-open-game]");if(!b)return;e.preventDefault();if(window.CoachReview?.open){window.CoachReview.open(b.dataset.openGame);return;}window.dispatchEvent(new CustomEvent("coach:review-game",{detail:{gameId:b.dataset.openGame}}));});
 games=readStoredGames();render();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){
