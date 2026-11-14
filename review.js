@@ -1,7 +1,7 @@
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
 const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let active=null,moves=[],index=0,analysisMoves=[],activeAnalysisMove=null,variationIndex=0;
-let freeBoard=null,freeStartFen="",freeSelected=null;
+let freeBoard=null,freeStartFen="",freeSelected=null,freeRedo=[];
 const manualHighlights=new Set();
 const glyph={wk:"♔",wq:"♕",wr:"♖",wb:"♗",wn:"♘",wp:"♙",bk:"♚",bq:"♛",br:"♜",bb:"♝",bn:"♞",bp:"♟"};
 function arrow(from,to,color,dashed=false){
@@ -49,15 +49,27 @@ function render(){
  }catch{board=new Chess();}
  const lastPv=variationIndex>0?pv[variationIndex-1]:null;
  const pvSquares=lastPv?[lastPv.slice(0,2),lastPv.slice(2,4)]:[];
+
+ const orientation=(active&&(active.black||"").toLowerCase()==="gone_1950")?"black":"white";
  const selectedSquares=freeSelected?[freeSelected]:[];
+ const legalMoves=freeBoard&&freeSelected?freeBoard.moves({square:freeSelected,verbose:true}):[];
+ const legalTargets=new Map(legalMoves.map(m=>[m.to,m.captured?"capture":"move"]));
+ const moveDetail=!freeBoard&&index>0?(active?.analysis?.positionDetails?.[index-1]||null):null;
+ const moveBadge=moveDetail?(()=>{const symbol=moveDetail.bestUci===moveDetail.playedUci?"★":({good:"✓",inaccuracy:"?!",mistake:"?",blunder:"??"}[moveDetail.kind]||"✓");const label=moveDetail.bestUci===moveDetail.playedUci?"Meilleur coup":moveDetail.label||"Bon coup";return {symbol,label,kind:moveDetail.bestUci===moveDetail.playedUci?"best":moveDetail.kind,square:moveDetail.playedUci?.slice(2,4)};})():null;
+ const ranks=orientation==="white"?[8,7,6,5,4,3,2,1]:[1,2,3,4,5,6,7,8];
+ const files=orientation==="white"?["a","b","c","d","e","f","g","h"]:["h","g","f","e","d","c","b","a"];
  let cells="";
- board.board().forEach((rank,r)=>rank.forEach((p,f)=>{
-  const square=String.fromCharCode(97+f)+(8-r),light=((r+f)%2)===1;
+ ranks.forEach((rank,r)=>files.forEach((file,f)=>{
+  const square=file+rank,p=board.get(square),light=((rank-1+(file.charCodeAt(0)-97))%2)===1;
   const classes=["replay-square",light?"light":"dark"];
   if(pvSquares.includes(square))classes.push("pv-highlight");
   if(manualHighlights.has(square))classes.push("manual-highlight");
   if(selectedSquares.includes(square))classes.push("free-selected");
-  cells+='<div class="'+classes.join(" ")+'" data-square="'+square+'">'+(p?'<img class="chess-piece-image" src="https://lichess1.org/assets/piece/cburnett/'+(p.color==="w"?"w":"b")+p.type.toUpperCase()+'.svg" alt="'+glyph[p.color+p.type]+'">':'')+'</div>';
+  if(legalTargets.has(square))classes.push(legalTargets.get(square)==="capture"?"legal-capture":"legal-target");
+  const rankLabel=f===0?'<span class="board-coordinate rank-coordinate">'+rank+'</span>':"";
+  const fileLabel=r===7?'<span class="board-coordinate file-coordinate">'+file.toUpperCase()+'</span>':"";
+  const badge=moveBadge&&moveBadge.square===square?'<span class="move-quality '+moveBadge.kind+'" title="'+esc(moveBadge.label)+'">'+moveBadge.symbol+'</span>':"";
+  cells+='<div class="'+classes.join(" ")+'" data-square="'+square+'">'+(p?'<img class="chess-piece-image" src="https://lichess1.org/assets/piece/cburnett/'+(p.color==="w"?"w":"b")+p.type.toUpperCase()+'.svg" alt="'+glyph[p.color+p.type]+'">':"")+rankLabel+fileLabel+badge+'</div>';
  }));
  let arrows="";
  const arrowDetail=freeBoard?null:(variationIndex===0?detail:null);
