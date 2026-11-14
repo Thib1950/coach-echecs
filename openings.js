@@ -23,7 +23,7 @@ async function loadDatabase(){
  }catch(e){dbError=e.message||"Chargement impossible";dbReady=true;}
 }
 function gameMoves(game){try{const c=new Chess();c.loadPgn(game.pgn||"");return c.history({verbose:true}).map(m=>m.from+m.to+(m.promotion||""));}catch{return [];}}
-function validEco(value){const m=String(value||"").match(/\\b([A-E]\\d{2})\\b/i);return m?m[1].toUpperCase():"";}
+function validEco(value){const m=String(value||"").match(/\b([A-E]\d{2})\b/i);return m?m[1].toUpperCase():"";}
 function compatibleEco(name,eco){
  if(!eco)return false;
  const n=String(name||"").toLowerCase();
