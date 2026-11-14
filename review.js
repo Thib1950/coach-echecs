@@ -109,7 +109,7 @@ function render(){
   const best=arrowDetail.bestUci,played=arrowDetail.playedUci;
   const colors={brilliant:"#42b7ff",great:"#54a9f5",best:"#72cf79",excellent:"#82c96b",good:"#82c96b",book:"#aeb8c4",inaccuracy:"#f0c34e",mistake:"#f39a42",blunder:"#ef5b62",miss:"#df75c8"};
   const playedColor=colors[arrowDetail.kind]||"#f39a42";
-  const bestColor=arrowDetail.kind==="brilliant"||arrowDetail.kind==="great"?"#42b7ff":"#72cf79";
+  const bestColor=colors[arrowDetail.kind]||"#72cf79";
   arrows='<svg class="board-arrows '+(orientation==="black"?"rotated":"")+'" viewBox="0 0 100 100" aria-hidden="true"><defs><marker id="bestArrow" markerWidth="3.6" markerHeight="3.6" refX="2.8" refY="1.8" orient="auto"><path d="M0,0 L3.6,1.8 L0,3.6 z" fill="'+bestColor+'"/></marker><marker id="playedArrow" markerWidth="3.6" markerHeight="3.6" refX="2.8" refY="1.8" orient="auto"><path d="M0,0 L3.6,1.8 L0,3.6 z" fill="'+playedColor+'"/></marker></defs>'+arrow(best?.slice(0,2),best?.slice(2,4),bestColor)+(played&&played!==best?arrow(played.slice(0,2),played.slice(2,4),playedColor,true):"")+'</svg>';
  }
  const last=index?moves[index-1]:null;
