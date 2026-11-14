@@ -187,7 +187,7 @@ function renderResults(g, report){
   const counts=Object.fromEntries(kinds.map(k=>[k,0]));
   report.moves.forEach(m=>{if(counts[m.kind]!==undefined)counts[m.kind]++;});
   const meta={brilliant:["✦","Brillants"],great:["!","Grands coups"],best:["★","Meilleurs"],excellent:["◆","Excellents"],good:["✓","Bons coups"],book:["▤","Théorie"],inaccuracy:["?!","Imprécisions"],mistake:["?","Erreurs"],miss:["×","Occasions manquées"],blunder:["‼","Gaffes"]};
-  const tiles=kinds.filter(k=>counts[k]>0).map(k=>'<div class="summary-metric '+k+'"><span class="metric-icon">'+meta[k][0]+'</span><strong>'+counts[k]+'</strong><span class="metric-label">'+meta[k][1]+'</span></div>').join("");
+  const tiles=kinds.filter(k=>counts[k]>0).map(k=>'<div class="summary-metric '+k+'"><div class="summary-top"><span class="metric-icon">'+meta[k][0]+'</span><strong>'+counts[k]+'</strong></div><span class="metric-label">'+meta[k][1]+'</span></div>').join("");
   $("analysis-results").innerHTML='<div class="analysis-summary">'+tiles+'</div>';
   if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,g);
 }
