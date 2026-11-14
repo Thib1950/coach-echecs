@@ -186,3 +186,22 @@ html,body,button,a,input,select{touch-action:manipulation}
 #panel-training .stats-grid.three{grid-template-columns:repeat(4,minmax(0,1fr))}
 .analysis-summary{grid-template-columns:repeat(5,minmax(0,1fr))}
 @media(max-width:760px){#panel-training .stats-grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}.analysis-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Interface développement : lisibilité et hiérarchie des informations */
+#panel-training .training-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0 22px}
+.training-kpi{display:grid;gap:8px;padding:20px;border-radius:15px;border:1px solid #344a61;min-height:130px}
+.training-kpi span{font-size:10px;font-weight:800;letter-spacing:1px}
+.training-kpi strong{font:800 34px Manrope;line-height:1.05}
+.training-kpi small{font-size:11px;color:#b6c5d6}
+.kpi-review{background:linear-gradient(140deg,#392b32,#211f2d);border-color:#69434a}
+.kpi-review span{color:#ffb0b4}.kpi-review strong{color:#ffc0c3}
+.kpi-accuracy{background:linear-gradient(140deg,#243a32,#1b2b35);border-color:#426b58}
+.kpi-accuracy span{color:#b8edbd}.kpi-accuracy strong{color:#d4f4a2}
+.game-elo{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.game-elo span{font-size:10px;color:#b9c8d8;background:#1a2b40;border:1px solid #3a5068;border-radius:6px;padding:5px 7px}
+.game-elo b{color:#f1f6fc;font-weight:800;margin-left:3px}
+.game-analysis-meta{display:none}
+#panel-training .engine-surface{border-color:#526c88}
+#panel-training .engine-surface>.surface-heading{border-bottom:1px solid #354b63;padding-bottom:12px}
+#build-version{font-variant-numeric:tabular-nums;color:#a9bbcf}
+@media(max-width:600px){#panel-training .training-kpis{gap:9px}.training-kpi{padding:14px;min-height:112px}.training-kpi strong{font-size:29px}.game-elo span{font-size:9px}}
