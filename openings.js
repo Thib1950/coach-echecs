@@ -68,7 +68,7 @@ function renderDetail(g){
  $("opening-detail").querySelectorAll("[data-opening-game]").forEach(b=>b.addEventListener("click",()=>openGame(b.dataset.openingGame)));
  $("opening-detail").querySelectorAll("[data-opening-lesson]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.openingLesson,index=b.dataset.moveIndex;document.querySelector('[data-tab="training"]').click();const game=(window.CoachApp?.getGames?.()||[]).find(x=>String(x.id)===String(id));const select=$("analysis-game-select");if(select)select.value=id;if(game?.analysis?.moves?.[Number(index)]&&window.CoachLessons)window.CoachLessons.openForGameMove(id,index);else $("analyse-game-button").click();}));
 }
-function openGame(id){document.querySelector('[data-tab="training"]').click();const select=$("analysis-game-select");if(select){select.value=id;$("analyse-game-button").click();}}
+function openGame(id){window.dispatchEvent(new CustomEvent("coach:analyze-game",{detail:{gameId:id}}));}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-opening]");if(b){const g=groups.find(x=>x.key===b.dataset.opening);if(g)renderDetail(g);}});
 document.addEventListener("DOMContentLoaded",async()=>{
  $("opening-detail")||$("opening-table").insertAdjacentHTML("afterend",'<div id="opening-detail"></div>');
