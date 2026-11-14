@@ -49,7 +49,16 @@ function buildGroups(){
 function render(){
  buildGroups();const filter=$("opening-color-filter")?.value||"all",totalGames=(window.CoachApp?.getGames?.()||[]).filter(game=>filter==="all"||sideOf(game)===filter).length;
  const rows=groups.map(g=>{const games=g.games.filter(x=>filter==="all"||sideOf(x)===filter);return {...g,shown:games.length,shownGames:games,w:games.filter(x=>outcome(x)==="win").length,d:games.filter(x=>outcome(x)==="draw").length,l:games.filter(x=>outcome(x)==="loss").length,white:games.filter(x=>sideOf(x)==="white").length,black:games.filter(x=>sideOf(x)==="black").length,winRate:performance(games)};}).filter(g=>g.shown).sort((a,b)=>b.shown-a.shown||a.family.localeCompare(b.family,"fr"));
- $("opening-table").innerHTML=rows.length?rows.map(g=>{const decided=g.w+g.d+g.l,points=(g.w+g.d/2)/(decided||1),status=decided<3?"À confirmer":points<.45?"À travailler":points>=.6?"Bon repère":"À consolider";const statusClass=decided>=3&&points<.45?"needs-work":decided>=3&&points>=.6?"solid":"neutral";return '<div class="opening-family-row"><div class="opening-family-main"><strong>'+esc(g.family)+'</strong><small>Blancs : '+g.white+' partie(s) · Noirs : '+g.black+' partie(s)</small></div><div class="opening-family-stats"><b>'+g.shown+' partie(s) · '+Math.round(g.shown/(totalGames||1)*100)+' % de tes parties · '+(g.winRate===null?"—":g.winRate+" % de victoires")+'</b><small>V / N / D : '+g.w+' / '+g.d+' / '+g.l+'</small><span class="opening-status '+statusClass+'">'+status+'</span></div><div class="opening-family-actions"><button type="button" class="opening-family-button" data-opening-family="'+esc(g.key)+'">Étudier</button><button type="button" class="opening-family-button secondary" data-opening-family-exercise="'+esc(g.key)+'">Exercice</button></div></div>';}).join(""):'<div class="empty-state">'+(dbError?"Les noms d'ouvertures n'ont pas pu être chargés. Vérifie ta connexion puis rouvre cet onglet.":"Aucune ouverture reconnue dans tes parties importées.")+'</div>';
+ $("opening-table").innerHTML=rows.length?rows.map(g=>{const decided=g.w+g.d+g.l,points=(g.w+g.d/2)/(decided||1),status=decided<3?"À confirmer":points<.45?"À travailler":points>=.6?"Bon repère":"À consolider";const statusClass=decided>=3&&points<.45?"needs-work":decided>=3&&points>=.6?"solid":"neutral";return '<div class="opening-family-row"><div class="opening-family-main"><strong>'+esc(g.family)+'</strong><small>Blancs : '+g.white+' partie(s) · Noirs : '+g.black+' partie(s)</small></div><div class="opening-family-status"><span class="opening-status '+statusClass+'">'+status+'</span></div><div class="opening-family-stats"><b>'+g.shown+' partie(s)</b><small>'+Math.round(g.shown/(totalGames||1)*100)+' % des parties</small><small class="opening-win-rate">'+(g.winRate===null?"—":g.winRate+" % de victoires")+'</small></div><div class="opening-family-actions"><button type="button" class="opening-family-button" data-opening-family="'+esc(g.key)+'">Étudier</button><button type="button" class="opening-family-button secondary" data-opening-family-exercise="'+esc(g.key)+'">Exercice</button></div></div>';}).join(""):'<div class="empty-state">'+(dbError?"Les noms d'ouvertures n'ont pas pu être chargés. Vérifie ta connexion puis rouvre cet onglet.":"Aucune ouverture reconnue dans tes parties importées.")+'</div>';
+ $("opening-table").querySelectorAll("[data-opening-family-exercise]").forEach(button=>button.addEventListener("click",event=>{
+  event.preventDefault();event.stopPropagation();
+  const group=groups.find(item=>item.key===button.dataset.openingFamilyExercise);if(!group)return;
+  renderDetail(group);
+  const variants=[...group.variants.values()].map(v=>({...v,winRate:performance(v.games)})).sort((a,b)=>(a.winRate??101)-(b.winRate??101)||b.count-a.count);
+  const chosen=variants.find(v=>v.winRate!==null)||variants[0];
+  if(chosen)startExercise(group,chosen);
+  else $("opening-practice").innerHTML='<p class="muted">Aucune ligne jouable n’est disponible pour cette ouverture.</p>';
+ }));
  if(currentKey){const g=groups.find(x=>x.key===currentKey);if(g)renderDetail(g);}
 }
 function renderDetail(g){
@@ -115,8 +124,6 @@ function startExercise(group,variant){
  draw();
 }
 document.addEventListener("click",event=>{
- const exerciseButton=event.target.closest("[data-opening-family-exercise]");
- if(exerciseButton){const g=groups.find(x=>x.key===exerciseButton.dataset.openingFamily);if(g){renderDetail(g);const variants=[...g.variants.values()].map(v=>({...v,winRate:performance(v.games)})).sort((a,b)=>(a.winRate??101)-(b.winRate??101)||b.count-a.count);if(variants[0])startExercise(g,variants[0]);}return;}
  const button=event.target.closest("[data-opening-family]");if(button){const g=groups.find(x=>x.key===button.dataset.openingFamily);if(g)renderDetail(g);}
 });
 $("opening-color-filter")?.addEventListener("change",render);
