@@ -1,5 +1,5 @@
-const CACHE="coach-echecs-shell-v13";
-const FILES=["./","./index.html","./styles.css","./app.js","./analysis.js","./lesson.js","./openings.js","./engine-worker.js","./manifest.webmanifest","./favicon.svg"];
+const CACHE="coach-echecs-shell-v14";
+const FILES=["./","./index.html","./styles.css","./app.js","./analysis.js","./review.js","./lesson.js","./openings.js","./engine-worker.js","./manifest.webmanifest","./favicon.svg"];
 
 self.addEventListener("install",event=>{
   event.waitUntil((async()=>{
