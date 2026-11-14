@@ -5,27 +5,6 @@ let worker = null, engineReady = null, busy = false;
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const user = "gone_1950";
 
-let replayHistory=[],replayIndex=0;
-const pieceGlyph={wk:"♔",wq:"♕",wr:"♖",wb:"♗",wn:"♘",wp:"♙",bk:"♚",bq:"♛",br:"♜",bb:"♝",bn:"♞",bp:"♟"};
-function drawReplay(){
- const area=$("game-replay-area");
- if(!area||!replayHistory.length)return;
- const board=new Chess();
- for(let i=0;i<replayIndex;i++){const m=replayHistory[i];board.move({from:m.from,to:m.to,promotion:m.promotion});}
- let squares="";
- board.board().forEach((rank,r)=>rank.forEach((piece,f)=>{
-  const square=String.fromCharCode(97+f)+(8-r);
-  squares+='<div class="replay-square '+(((r+f)%2)?"light":"dark")+'">'+(piece?'<span class="piece">'+pieceGlyph[piece.color+piece.type]+'</span>':'')+'</div>';
- }));
- const current=replayIndex?replayHistory[replayIndex-1]:null;
- const label=current?(Math.ceil(replayIndex/2)+". "+current.san):"Position initiale";
- area.innerHTML='<article class="surface replay-card"><div class="surface-heading"><div><p class="eyebrow">RELECTURE INTERACTIVE</p><h3>Rejouer la partie</h3><p class="muted">'+label+' · '+replayIndex+' / '+replayHistory.length+' demi-coups</p></div></div><div class="replay-layout"><div class="replay-board">'+squares+'</div><div class="replay-controls"><button type="button" class="secondary-button" data-replay-step="-1" '+(replayIndex===0?"disabled":"")+'>← Précédent</button><button type="button" class="primary-button" data-replay-step="1" '+(replayIndex===replayHistory.length?"disabled":"")+'>Suivant →</button><button type="button" class="text-button" data-replay-start="1">Revenir au début</button></div></div></article>';
-}
-function prepareReplay(pgn){
- try{const game=new Chess();game.loadPgn(pgn);replayHistory=game.history({verbose:true});replayIndex=0;drawReplay();}
- catch{replayHistory=[];$("game-replay-area").innerHTML='<div class="empty-state">La partie ne peut pas être rejouée : le PGN est invalide.</div>';}
-}
-
 
 function getEngine(){
   if (engineReady) return engineReady;
@@ -124,7 +103,7 @@ async function analyseSelectedGame(gameIdOverride){
   $("analysis-game-select").value=String(game.id);
   if (!game.pgn) { $("analysis-results").innerHTML='<div class="empty-state">Le PGN de cette partie n'est pas disponible. Réimporte la partie depuis Chess.com pour l'analyser.</div>'; return; }
   busy = true; $("analyse-game-button").disabled = true; $("analyse-game-button").textContent = "Analyse en cours…";
-  $("analysis-progress").hidden = false; $("analysis-results").innerHTML = ""; if(window.CoachReview?.open) window.CoachReview.open(game.id);
+  $("analysis-progress").hidden = false; $("analysis-progress-fill").style.width = "0%"; $("analysis-progress-label").textContent = "Chargement du moteur Stockfish…"; $("analysis-results").innerHTML = ""; if(window.CoachReview?.open) window.CoachReview.open(game.id);
   try {
     const parsed = new Chess();
     parsed.loadPgn(game.pgn);
@@ -192,9 +171,4 @@ $("analyse-game-button").addEventListener("click",()=>analyseSelectedGame());
 window.addEventListener("coach:games-updated",refreshGamePicker);
 document.addEventListener("click",event=>{const row=event.target.closest("[data-analysis-ply]");if(!row)return;const ply=Number(row.dataset.analysisPly);const game=(window.CoachApp?.getGames?.()||[]).find(g=>String(g.id)===$("analysis-game-select").value);const move=game?.analysis?.moves?.find(m=>m.ply===ply);if(move)window.CoachReview?.showAnalysisMove?.(move);});
 window.CoachAnalysis={openGame:openGameInCoach,analyze:gameId=>openGameInCoach(gameId)};
-$("game-replay-area").addEventListener("click",event=>{
- const step=event.target.closest("[data-replay-step]");
- if(step){replayIndex=Math.max(0,Math.min(replayHistory.length,replayIndex+Number(step.dataset.replayStep)));drawReplay();return;}
- if(event.target.closest("[data-replay-start]")){replayIndex=0;drawReplay();}
-});
 refreshGamePicker();
