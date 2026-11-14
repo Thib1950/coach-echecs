@@ -48,6 +48,38 @@ function showAnalysisMove(move){
  activeAnalysisMove=move;index=move.ply;render();
  $("active-game-review")?.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
-document.addEventListener("click",e=>{const s=e.target.closest("[data-review-step]");if(s&&active){activeAnalysisMove=null;index=Math.max(0,Math.min(moves.length,index+Number(s.dataset.reviewStep)));render();return;}if(e.target.closest("[data-review-start]")&&active){activeAnalysisMove=null;index=0;render();return;}if(e.target.closest("[data-review-end]")&&active){activeAnalysisMove=null;index=moves.length;render();}});
+let moveAudioContext=null;
+function playMoveSound(direction){
+ try{
+  const AudioCtx=window.AudioContext||window.webkitAudioContext;
+  if(!AudioCtx)return;
+  if(!moveAudioContext)moveAudioContext=new AudioCtx();
+  const ctx=moveAudioContext;
+  if(ctx.state==="suspended")ctx.resume();
+  const oscillator=ctx.createOscillator(),gain=ctx.createGain();
+  oscillator.type="triangle";
+  oscillator.frequency.setValueAtTime(direction<0?390:540,ctx.currentTime);
+  gain.gain.setValueAtTime(0.0001,ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.055,ctx.currentTime+0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.075);
+  oscillator.connect(gain);gain.connect(ctx.destination);
+  oscillator.start(ctx.currentTime);oscillator.stop(ctx.currentTime+0.08);
+ }catch(error){console.debug("Son des coups indisponible",error);}
+}
+document.addEventListener("click",e=>{
+ const step=e.target.closest("[data-review-step]");
+ if(step&&active){
+  const next=Math.max(0,Math.min(moves.length,index+Number(step.dataset.reviewStep)));
+  if(next!==index){activeAnalysisMove=null;index=next;playMoveSound(Number(step.dataset.reviewStep));render();}
+  return;
+ }
+ if(e.target.closest("[data-review-start]")&&active){
+  if(index!==0){activeAnalysisMove=null;index=0;playMoveSound(-1);render();}
+  return;
+ }
+ if(e.target.closest("[data-review-end]")&&active){
+  if(index!==moves.length){activeAnalysisMove=null;index=moves.length;playMoveSound(1);render();}
+ }
+});
 window.CoachReview={open,setAnalysis,showAnalysisMove};
 window.addEventListener("coach:review-game",event=>open(event.detail?.gameId));
