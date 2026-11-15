@@ -1,7 +1,7 @@
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
 const $=id=>document.getElementById(id),currentUser=()=>String(window.CoachApp?.getUsername?.()||"").toLowerCase();
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let database=[],dbError="",databaseLoadPromise=null,groups=[],currentKey=null,exercise=null,showAllOpenings=false;
+let database=[],dbError="",databaseLoadPromise=null,databaseReady=false,groups=[],currentKey=null,exercise=null,showAllOpenings=false;
 const glyph={wk:"♔",wq:"♕",wr:"♖",wb:"♗",wn:"♘",wp:"♙",bk:"♚",bq:"♛",br:"♜",bb:"♝",bn:"♞",bp:"♟"};
 const FR=[[/London System/gi,"Système de Londres"],[/Jobava London/gi,"Londres Jobava"],[/Sicilian Defense/gi,"Défense sicilienne"],[/King's Pawn Game/gi,"Partie du pion roi"],[/Queen's Pawn Game/gi,"Partie du pion dame"],[/Four Knights Game/gi,"Partie des quatre cavaliers"],[/King's Pawn Game/gi,"Partie du pion roi"],[/Queen's Pawn Game/gi,"Partie du pion dame"],[/Four Knights Game/gi,"Partie des quatre cavaliers"],[/French Defense/gi,"Défense française"],[/Caro-Kann Defense/gi,"Défense Caro-Kann"],[/King's Indian Defense/gi,"Défense est-indienne"],[/Queen's Gambit/gi,"Gambit dame"],[/King's Gambit/gi,"Gambit roi"],[/Ruy Lopez/gi,"Partie espagnole"],[/Italian Game/gi,"Partie italienne"],[/Scotch Game/gi,"Partie écossaise"],[/English Opening/gi,"Ouverture anglaise"],[/Scandinavian Defense/gi,"Défense scandinave"],[/Alekhine's Defense/gi,"Défense Alekhine"],[/Pirc Defense/gi,"Défense Pirc"],[/Dutch Defense/gi,"Défense hollandaise"],[/Slav Defense/gi,"Défense slave"],[/Nimzo-Indian Defense/gi,"Défense nimzo-indienne"],[/Grünfeld Defense/gi,"Défense Grünfeld"],[/Benoni Defense/gi,"Défense Benoni"],[/Reti Opening/gi,"Ouverture Réti"],[/Opening/gi,"Ouverture"],[/Defense/gi,"Défense"],[/Gambit/gi,"Gambit"],[/Advanced Variation/gi,"Variante d’avance"],[/Variation/gi,"Variante"],[/Attack/gi,"Attaque"],[/Accepted/gi,"accepté"],[/Declined/gi,"refusé"],[/Exchange/gi,"d'échange"],[/Classical/gi,"classique"],[/System/gi,"système"]];
 function frenchName(name){let s=name||"Ouverture non classée";for(const [re,to] of FR)s=s.replace(re,to);return s;}
@@ -64,33 +64,39 @@ function performance(games){const decided=games.filter(g=>["win","loss"].include
 function sanLine(uci){const c=new Chess(),out=[];for(let i=0;i<uci.length;i++){const m=c.moves({verbose:true}).find(x=>x.from+x.to+(x.promotion||"")===uci[i]);if(!m)break;c.move({from:m.from,to:m.to,promotion:m.promotion});out.push((i%2===0?(Math.floor(i/2)+1)+". ":"")+m.san);}return out.join(" ");}
 async function loadDatabase(){
  const cached=localStorage.getItem("coach-echecs-openings-db-v1");
- if(cached){try{database=JSON.parse(cached).map(item=>({...item,display:frenchName(item.name),family:familyName(item.name)}));return;}catch{}}
+ if(cached){try{database=JSON.parse(cached).map(item=>({...item,display:frenchName(item.name),family:familyName(item.name)}));databaseReady=true;classificationCache.clear();return;}catch{}}
  try{
   const letters=["a","b","c","d","e"];
   const files=await Promise.all(letters.map(async letter=>{const res=await fetch("https://raw.githubusercontent.com/lichess-org/chess-openings/master/"+letter+".tsv");if(!res.ok)throw new Error("Base des ouvertures indisponible");return await res.text();}));
   const all=[];
   for(const file of files)for(const row of file.split(/\r?\n/)){const [eco,name,pgn]=row.split("\t");if(!eco||!name||!pgn||eco.toLowerCase()==="eco")continue;const moves=parseLine(pgn);if(moves.length)all.push({eco,name,display:frenchName(name),family:familyName(name),moves,pgn});}
-  database=all;try{localStorage.setItem("coach-echecs-openings-db-v1",JSON.stringify(database));}catch{}
+  database=all;databaseReady=true;classificationCache.clear();try{localStorage.setItem("coach-echecs-openings-db-v1",JSON.stringify(database));}catch{}
  }catch(e){dbError=e.message||"Dictionnaire indisponible";}
 }
 const classificationCache=new Map();
 function classify(game){
- const id=String(game.id||game.url||"")+"|"+String(game.eco||"")+"|"+String(game.opening||"");
- const cached=classificationCache.get(id);if(cached)return cached;
- const header=(game.opening||"").trim(),eco=validEco(game.eco);
- // Les PGN Chess.com contiennent presque toujours ECO et/ou Opening.
- // Utiliser ces métadonnées évite de rejouer chaque PGN et de comparer
- // ses coups à toute la bibliothèque à chaque affichage.
- if(header){const result={eco,name:header,display:frenchName(header),family:familyName(header),moves:[],pgn:""};classificationCache.set(id,result);return result;}
- if(eco){
-  const candidates=database.filter(x=>x.eco===eco).sort((a,b)=>b.moves.length-a.moves.length);
-  if(candidates.length){const result=candidates[0];classificationCache.set(id,result);return result;}
-  const result={eco,name:"Code "+eco,display:"Code "+eco,family:"Code "+eco,moves:[],pgn:""};classificationCache.set(id,result);return result;
- }
- const moves=gameMoves(game);let best=null;
- for(const item of database){if(!item.moves.length||item.moves.length>moves.length)continue;let ok=true;for(let i=0;i<item.moves.length;i++)if(item.moves[i]!==moves[i]){ok=false;break;}if(ok&&(!best||item.moves.length>best.moves.length))best=item;}
- const result=best||{eco:"",name:"Ouverture non classée",display:"Ouverture non identifiée",family:"Ouverture non identifiée",moves:[],pgn:""};
- classificationCache.set(id,result);return result;
+  const id=String(game.id||game.url||"")+"|"+String(game.eco||"")+"|"+String(game.opening||"");
+  const cached=classificationCache.get(id);if(cached)return cached;
+  const header=(game.opening||"").trim(),headerCode=validEco(header),eco=validEco(game.eco)||headerCode;
+  // Certains PGN fournissent le code ECO dans le champ Opening : ce n'est pas un nom.
+  if(header&&!headerCode){
+    const result={eco,name:header,display:frenchName(header),family:familyName(header),moves:[],pgn:""};
+    classificationCache.set(id,result);return result;
+  }
+  if(eco){
+    // Ne jamais mémoriser un code comme nom pendant le chargement asynchrone
+    // de la bibliothèque : le rendu sera relancé dès qu'elle sera disponible.
+    if(!databaseReady)return {eco,name:"Identification de l'ouverture…",display:"Identification de l'ouverture…",family:"Identification de l'ouverture…",moves:[],pgn:""};
+    const candidates=database.filter(x=>x.eco===eco).sort((a,b)=>b.moves.length-a.moves.length);
+    if(candidates.length){const result=candidates[0];classificationCache.set(id,result);return result;}
+    const result={eco,name:"Ouverture non identifiée ("+eco+")",display:"Ouverture non identifiée ("+eco+")",family:"Ouverture non identifiée ("+eco+")",moves:[],pgn:""};
+    classificationCache.set(id,result);return result;
+  }
+  if(!databaseReady)return {eco:"",name:"Identification de l'ouverture…",display:"Identification de l'ouverture…",family:"Identification de l'ouverture…",moves:[],pgn:""};
+  const moves=gameMoves(game);let best=null;
+  for(const item of database){if(!item.moves.length||item.moves.length>moves.length)continue;let ok=true;for(let i=0;i<item.moves.length;i++)if(item.moves[i]!==moves[i]){ok=false;break;}if(ok&&(!best||item.moves.length>best.moves.length))best=item;}
+  const result=best||{eco:"",name:"Ouverture non classée",display:"Ouverture non identifiée",family:"Ouverture non identifiée",moves:[],pgn:""};
+  classificationCache.set(id,result);return result;
 }
 const LEARNING_PREFIX="coach-echecs-opening-learning-v2";
 const learningKey=()=>LEARNING_PREFIX+":"+currentUser();
