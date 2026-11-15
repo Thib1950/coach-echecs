@@ -1,5 +1,5 @@
-const CACHE="coach-echecs-shell-v38";
-const FILES=["./","./index.html","./styles.css","./app.js","./analysis.js","./review.js","./lesson.js","./openings.js","./engine-worker.js","./manifest.webmanifest","./favicon.svg"];
+const CACHE="coach-echecs-shell-v39";
+const FILES=["./","./index.html","./styles.css","./app.js","./analysis.js","./review.js","./lesson.js","./openings.js","./puzzles.js","./engine-worker.js","./manifest.webmanifest","./favicon.svg"];
 
 // Le moteur est servi sous une URL de même origine. Le service worker récupère
 // les fichiers officiels Stockfish 19 Lite Single depuis le paquet npm, puis
