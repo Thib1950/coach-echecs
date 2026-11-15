@@ -23,7 +23,7 @@ function loadPuzzleProgress(){try{const raw=localStorage.getItem(progressKey())|
 function savePuzzleProgress(){try{localStorage.setItem(progressKey(),JSON.stringify(puzzleProgress));}catch{}renderPuzzleProgress();}
 function renderPuzzleProgress(){const node=$("puzzle-progress");const total=puzzleProgress.dailySolved.length+puzzleProgress.personalSolved.length+(puzzleProgress.bankSolved||[]).length;if(node)node.textContent=total+" résolu"+(total>1?"s":"")+" · "+puzzleProgress.attempts+" tentative"+(puzzleProgress.attempts>1?"s":"")+" · "+puzzleProgress.wrongMoves+" erreur"+(puzzleProgress.wrongMoves>1?"s":"");const solved=$("puzzle-hub-solved"),attempts=$("puzzle-hub-attempts"),errors=$("puzzle-hub-errors");if(solved)solved.textContent=String(total);if(attempts)attempts.textContent=String(puzzleProgress.attempts);if(errors)errors.textContent=String(puzzleProgress.wrongMoves);}
 function openPuzzleExercise(){const hub=$("puzzle-hub"),exercise=$("puzzle-exercise");if(hub)hub.hidden=true;if(exercise)exercise.hidden=false;$("panel-puzzles")?.classList.add("puzzle-exercise-active");}
-function closePuzzleExercise(){if(learnExerciseMode){const exercise=$("learn-training-exercise"),back=$(learnBackView);if(exercise)exercise.hidden=true;if(back)back.hidden=false;learnExerciseMode=false;}else{const hub=$("puzzle-hub"),exercise=$("puzzle-exercise");if(exercise)exercise.hidden=true;if(hub)hub.hidden=false;$("panel-puzzles")?.classList.remove("puzzle-exercise-active");}sessionActive=false;sessionQueue=[];sessionMode="";sessionFinished=false;dailyDecisionOpen=false;solutionRevealed=false;stopPuzzleTimer();stopAutoNext();loading=false;selected=null;board=null;}
+let learnExerciseOverlay=null,learnExercisePlaceholder=null;function openLearnExerciseScreen(){const exercise=$("learn-training-exercise");if(!exercise)return;if(!learnExercisePlaceholder){learnExercisePlaceholder=document.createComment("learn-exercise-position");exercise.parentNode?.insertBefore(learnExercisePlaceholder,exercise);}if(!learnExerciseOverlay){learnExerciseOverlay=document.createElement("div");learnExerciseOverlay.className="learn-exercise-overlay";learnExerciseOverlay.setAttribute("role","dialog");learnExerciseOverlay.setAttribute("aria-modal","true");learnExerciseOverlay.setAttribute("aria-label","Entraînement personnalisé");document.body.appendChild(learnExerciseOverlay);}learnExerciseOverlay.appendChild(exercise);exercise.hidden=false;document.body.classList.add("learn-exercise-open");window.scrollTo({top:0,behavior:"instant"});}function closeLearnExerciseScreen(){const exercise=$("learn-training-exercise");if(exercise&&learnExercisePlaceholder?.parentNode){learnExercisePlaceholder.parentNode.insertBefore(exercise,learnExercisePlaceholder);learnExercisePlaceholder.remove();}learnExercisePlaceholder=null;learnExerciseOverlay?.remove();learnExerciseOverlay=null;document.body.classList.remove("learn-exercise-open");}function closePuzzleExercise(){if(learnExerciseMode){closeLearnExerciseScreen();const exercise=$("learn-training-exercise"),back=$(learnBackView);if(exercise)exercise.hidden=true;if(back)back.hidden=false;learnExerciseMode=false;document.querySelector("#panel-openings")?.classList.remove("learn-session-active");document.querySelector(".tabs")?.classList.remove("learn-session-active");}else{const hub=$("puzzle-hub"),exercise=$("puzzle-exercise");if(exercise)exercise.hidden=true;if(hub)hub.hidden=false;$("panel-puzzles")?.classList.remove("puzzle-exercise-active");}sessionActive=false;sessionQueue=[];sessionMode="";sessionFinished=false;dailyDecisionOpen=false;solutionRevealed=false;stopPuzzleTimer();stopAutoNext();loading=false;selected=null;board=null;}
 function personalKey(game,detail){return String(game.id)+"|"+detail.fen+"|"+detail.bestUci;}
 function markPuzzleSolved(){
  const key=currentPuzzle?personalKey(currentPuzzle.game,currentPuzzle.detail):currentDailyId;if(!key)return;
@@ -218,7 +218,8 @@ function startPersonalPuzzle(item,fromSession=false,fromLearn=false){
  if(!item?.detail?.fen||!item.detail.bestUci)return;
  if(fromLearn){
   learnExerciseMode=true;learnBackView=learnCurrentView;
-  ["learn-hub","learn-training-choice","learn-errors-view","learn-training-exercise","learn-opening-choice","learn-opening-detected","learn-opening-explorer"].forEach(id=>{const node=$(id);if(node)node.hidden=id!=="learn-training-exercise";});
+  ["learn-hub","learn-training-choice","learn-errors-view","learn-opening-choice","learn-opening-detected","learn-opening-explorer"].forEach(id=>{const node=$(id);if(node)node.hidden=true;});
+  openLearnExerciseScreen();
  }else{document.querySelector('[data-tab="puzzles"]')?.click();openPuzzleExercise();}
  if(!fromSession){sessionActive=false;sessionQueue=[];sessionTotal=0;sessionSolved=0;sessionMode="";stopPuzzleTimer();stopAutoNext();}
  currentPuzzle=item;board=new Chess(item.detail.fen);const pv=Array.isArray(item.detail.pvUci)?item.detail.pvUci:[];solution=[];const pvBoard=new Chess(item.detail.fen);for(const u of pv.slice(0,8)){const move=legalSolutionMove(pvBoard,u);if(!move)break;solution.push(u);pvBoard.move({from:move.from,to:move.to,promotion:move.promotion||"q"});}if(!solution.length)solution=[item.detail.bestUci];puzzleProgress.attempts++;savePuzzleProgress();ply=0;selected=null;hinted=false;solved=false;loading=false;
@@ -237,6 +238,32 @@ function startPuzzleMode(mode){
  sessionLabel=mode==="lives"?"Survie · 3 vies":"Défi chronométré · 3 minutes";
  if(mode==="timed")startPuzzleTimer();else stopPuzzleTimer();openPuzzleExercise();loadDaily(true);
 }
+let lastErrorReviewId="";
+function startErrorReviewSession(){
+ personalized=personalCandidates();
+ const errors=personalized.filter(item=>["blunder","mistake","inaccuracy","miss"].includes(item.detail.kind));
+ learnCurrentView="learn-errors-view";learnExerciseMode=true;learnBackView="learn-errors-view";
+ if(!errors.length){
+  ["learn-hub","learn-training-choice","learn-errors-view","learn-opening-choice","learn-opening-detected","learn-opening-explorer"].forEach(id=>{const node=$(id);if(node)node.hidden=true;});
+  openLearnExerciseScreen();
+  const title=$("learn-exercise-title");if(title)title.textContent="Aucune erreur à revoir pour le moment";
+  const area=$("learn-training-board-area");if(area)area.innerHTML='<div class="empty-state">Aucune position analysée n’est disponible. Lance une analyse Stockfish de tes parties pour créer tes premières positions à retravailler.</div><div class="puzzle-side-back"><button type="button" class="secondary-button" data-puzzle-back>← Retour à Apprendre</button></div>';
+  return;
+ }
+ const shuffled=errors.slice().sort(()=>Math.random()-.5);
+ if(shuffled.length>1&&shuffled[0].id===lastErrorReviewId){const swap=1+Math.floor(Math.random()*(shuffled.length-1));[shuffled[0],shuffled[swap]]=[shuffled[swap],shuffled[0]];}
+ const selected=shuffled.slice(0,Math.min(5,shuffled.length));lastErrorReviewId=selected[0].id;
+ sessionMode="adaptive";sessionLabel="Révision de tes erreurs";sessionActive=true;sessionFinished=false;sessionQueue=selected.slice(1);sessionTotal=selected.length;sessionSolved=0;sessionPuzzleIds=[];stopPuzzleTimer();stopAutoNext();
+ document.querySelector("#panel-openings")?.classList.add("learn-session-active");
+ document.querySelector(".tabs")?.classList.add("learn-session-active");
+ window.scrollTo({top:0,behavior:"instant"});
+ startPersonalPuzzle(selected[0],true,true);
+ message("Position 1 / "+sessionTotal+" · retrouve le meilleur coup dans une de tes parties.");
+}
+function showLearnSubviewForErrors(){
+ ["learn-hub","learn-training-choice","learn-errors-view","learn-training-exercise","learn-opening-choice","learn-opening-detected","learn-opening-explorer"].forEach(id=>{const node=$(id);if(node)node.hidden=id!=="learn-errors-view";});
+ renderLearnPersonalLists();
+}
 function startPuzzleSession(){
  sessionLabel="Suite de problèmes";
  const available=personalized.filter(item=>!puzzleProgress.personalSolved.includes(item.id));
@@ -246,10 +273,11 @@ function startPuzzleSession(){
  loadNextSessionPuzzle();
 }
 function loadNextSessionPuzzle(){
- if(sessionQueue.length){const item=sessionQueue.shift();startPersonalPuzzle(item,true);message(sessionLabel+" · position "+(sessionSolved+1)+" / "+sessionTotal+". Étudie l’explication, puis joue la meilleure suite.");return;}
+ if(sessionQueue.length){const item=sessionQueue.shift();startPersonalPuzzle(item,true,learnExerciseMode);message(sessionLabel+" · position "+(sessionSolved+1)+" / "+sessionTotal+". Étudie l’explication, puis joue la meilleure suite.");return;}
  sessionActive=false;currentPuzzle=null;board=null;selected=null;solved=false;
- $("puzzle-board-area").innerHTML='<div class="empty-state">Session terminée. Tu as résolu '+sessionSolved+" position"+(sessionSolved>1?"s":"")+" sur "+sessionTotal+'. Tu peux lancer une nouvelle session après avoir analysé d’autres parties.</div>';
- message("Bravo, ta session est terminée !");renderPersonalized();
+ const area=$(learnExerciseMode?"learn-training-board-area":"puzzle-board-area");
+ if(area)area.innerHTML='<div class="empty-state">Séance terminée. Tu as retravaillé '+sessionSolved+" position"+(sessionSolved>1?"s":"")+" sur "+sessionTotal+'. Tu peux relancer une séance pour revoir d’autres erreurs.</div><div class="puzzle-side-back"><button type="button" class="secondary-button" data-puzzle-back>← Retour</button></div>';
+ message("Séance terminée !");renderPersonalized();
 }
 function play(square){
  if(!board||solved||loading||sessionFinished)return;const piece=board.get(square);
@@ -287,5 +315,6 @@ document.addEventListener("click",event=>{
 window.addEventListener("coach:tab-changing",event=>{if(event.detail?.tab!=="puzzles"||event.detail?.fromPanel==="panel-puzzles")closePuzzleExercise();});
 window.addEventListener("coach:games-updated",renderPersonalized);
 window.addEventListener("coach:learn-personal-view",event=>{learnCurrentView=event.detail?.view||"learn-training-choice";renderLearnPersonalLists();});
+window.addEventListener("coach:launch-error-session",startErrorReviewSession);
 window.addEventListener("coach:account-changed",()=>{closePuzzleExercise();loadPuzzleProgress();renderPuzzleProgress();renderPersonalized();});
 loadPuzzleProgress();renderPuzzleProgress();renderPersonalized();
