@@ -2,8 +2,11 @@ import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
 
 const $ = id => document.getElementById(id);
 let worker = null, engineReady = null, busy = false, positionRequestId = 0;
+let backgroundPauseRequested=false;
+const isGamesPanelActive=()=>document.getElementById("panel-games")?.classList.contains("active")===true;
+let accuracyQueueRunning=false,accuracyQueueTotal=0,accuracyQueueDone=0,accuracyQueueSkipped=0;
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const user = "gone_1950";
+const user = () => String(window.CoachApp?.getUsername?.() || "").toLowerCase();
 
 
 function getEngine(){
@@ -124,6 +127,7 @@ function moveAccuracyFromWinLoss(loss){
 }
 function classify(winLoss,bestMove=false){
   if(bestMove)return {label:"Meilleur coup",kind:"best"};
+  if(winLoss<0.5)return {label:"Coup correct",kind:"normal"};
   if(winLoss<2)return {label:"Excellent",kind:"excellent"};
   if(winLoss<5)return {label:"Bon coup",kind:"good"};
   if(winLoss<10)return {label:"Imprécision",kind:"inaccuracy"};
@@ -146,31 +150,29 @@ function isBrilliantSacrifice(fen,uci,winLoss,beforeEval,afterEval){
     const moverSign=fen.split(" ")[1]==="w"?1:-1;
     const beforeWin=winPercent(beforeEval.scoreWhite*moverSign);
     const afterWin=winPercent(afterEval.scoreWhite*moverSign);
-    return beforeWin<85&&afterWin>35&&(afterEval.scoreWhite*moverSign)>-150;
+    return beforeWin<78&&afterWin>42&&afterWin>beforeWin&&(afterEval.scoreWhite*moverSign)>-100;
   }catch{return false;}
 }
 function gameAccuracyFromMoves(moves){
-  const rows=(moves||[]).filter(m=>Number.isFinite(Number(m.winLossPercent))).map(m=>({accuracy:moveAccuracyFromWinLoss(m.winLossPercent),winBefore:Number(m.winPercentBefore)||50}));
-  if(!rows.length)return null;
-  const size=Math.max(2,Math.min(8,Math.round(rows.length/10))),weights=rows.map((row,i)=>{
-    const window=rows.slice(Math.max(0,Math.min(i-size+1,rows.length-size)),Math.max(0,Math.min(i-size+1,rows.length-size))+size);
-    const mean=window.reduce((sum,x)=>sum+x.winBefore,0)/window.length;
-    const deviation=Math.sqrt(window.reduce((sum,x)=>sum+(x.winBefore-mean)**2,0)/window.length);
-    return Math.max(.5,Math.min(12,deviation));
-  });
-  const weighted=rows.reduce((sum,row,i)=>sum+row.accuracy*weights[i],0)/weights.reduce((sum,w)=>sum+w,0);
-  const harmonic=rows.length/rows.reduce((sum,row)=>sum+1/Math.max(.1,row.accuracy),0);
-  return Math.round((weighted+harmonic)/2);
+  // Une précision n'est affichée que si l'échantillon contient assez de coups
+  // réellement évalués. Les coups de théorie et les positions incomplètes sont exclus.
+  const rows=(moves||[])
+    .filter(m=>m.kind!=="book"&&m.winLossPercent!==null&&m.winLossPercent!==undefined&&Number.isFinite(Number(m.winLossPercent)))
+    .map(m=>moveAccuracyFromWinLoss(m.winLossPercent))
+    .filter(Number.isFinite);
+  if(rows.length<6)return null;
+  // Moyenne simple et explicable : chaque coup joué compte une fois.
+  return Math.round(rows.reduce((sum,value)=>sum+value,0)/rows.length);
 }
 function resultName(g){
-  const white = (g.white || "").toLowerCase() === user;
-  const black = (g.black || "").toLowerCase() === user;
+  const white = (g.white || "").toLowerCase() === user();
+  const black = (g.black || "").toLowerCase() === user();
   const won = (white && g.result === "1-0") || (black && g.result === "0-1");
   const draw = g.result === "1/2-1/2";
   return won ? "Victoire" : draw ? "Nulle" : "Défaite";
 }
 function labelGame(g){
-  const opponent = (g.white || "").toLowerCase() === user ? g.black : g.white;
+  const opponent = (g.white || "").toLowerCase() === user() ? g.black : g.white;
   return (g.date || "Date inconnue") + " · " + (opponent || "Adversaire") + " · " + resultName(g);
 }
 function refreshGamePicker(){
@@ -183,12 +185,13 @@ function refreshGamePicker(){
   $("analyse-game-button").disabled = !games.length || busy;
 }
 function renderResults(g, report){
-  const kinds=["brilliant","great","best","excellent","good","book","inaccuracy","mistake","miss","blunder"];
+  const kinds=["brilliant","excellent","best","great","good","book","inaccuracy","mistake","miss","blunder"];
   const counts=Object.fromEntries(kinds.map(k=>[k,0]));
   report.moves.forEach(m=>{if(counts[m.kind]!==undefined)counts[m.kind]++;});
-  const meta={brilliant:["✦","Brillants"],great:["!","Grands coups"],best:["★","Meilleurs"],excellent:["◆","Excellents"],good:["✓","Bons coups"],book:["▤","Théorie"],inaccuracy:["?!","Imprécisions"],mistake:["?","Erreurs"],miss:["×","Occasions manquées"],blunder:["‼","Gaffes"]};
+  const meta={brilliant:["✦","Brillants"],great:["!","Grands coups"],best:["★","Meilleurs coups"],excellent:["◆","Excellents"],good:["✓","Bons coups"],book:["▤","Théorie"],inaccuracy:["?!","Imprécisions"],mistake:["?","Erreurs"],miss:["×","Occasions manquées"],blunder:["‼","Gaffes"]};
   const tiles=kinds.filter(k=>counts[k]>0).map(k=>'<div class="summary-metric '+k+'"><div class="summary-top"><span class="metric-icon">'+meta[k][0]+'</span><strong>'+counts[k]+'</strong></div><span class="metric-label">'+meta[k][1]+'</span></div>').join("");
-  $("analysis-results").innerHTML='<div class="analysis-summary">'+tiles+'</div>';
+  window.CoachAnalysisSummaryHTML=tiles?'<div class="analysis-summary">'+tiles+'</div>':"";
+  $("analysis-results").innerHTML="";
   if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,g);
 }
 function accuracyFromMoves(moves){return gameAccuracyFromMoves(moves);}
@@ -208,6 +211,10 @@ async function analyseSelectedGame(gameIdOverride,options={}){
   const id=gameIdOverride===undefined?$("analysis-game-select").value:String(gameIdOverride);
   const game=games.find(g=>String(g.id)===id);
   if(!game){$("analysis-results").innerHTML='<div class="empty-state">Aucune partie sélectionnée.</div>';return;}
+  if(!options.force&&game.analysis&&game.analysis.partial===false&&Array.isArray(game.analysis.moves)){
+    if(!background){if(window.CoachReview?.open)window.CoachReview.open(game.id);renderResults(game,{moves:game.analysis.moves});$("analysis-progress").hidden=false;$("analysis-progress-fill").style.width="100%";$("analysis-progress-label").textContent="Analyse déjà terminée · résultat conservé.";}
+    return;
+  }
   if(!background)$("analysis-game-select").value=String(game.id);
   if(!game.pgn){if(!background)$("analysis-results").innerHTML='<div class="empty-state">Le PGN de cette partie n’est pas disponible. Réimporte la partie depuis Chess.com pour l’analyser.</div>';return;}
   busy=true;const startedAt=Date.now();
@@ -217,12 +224,13 @@ async function analyseSelectedGame(gameIdOverride,options={}){
     $("analysis-results").innerHTML="";if(window.CoachReview?.open)window.CoachReview.open(game.id);
   }
   const report={moves:[],depth:0,covered:0,positions:[],positionDetails:[]};
+  let interruptedForNavigation=false;
   try{
     const parsed=new Chess();parsed.loadPgn(game.pgn);
     const history=parsed.history({verbose:true});
     if(!history.length)throw new Error("Aucun coup n'a pu être lu dans le PGN de cette partie.");
     const engine=await getEngine(),replay=new Chess();
-    const userSide=(game.white||"").toLowerCase()===user?"w":"b";
+    const userSide=(game.white||"").toLowerCase()===user()?"w":"b";
     let beforeEval=await evalPosition(engine,replay.fen(),movetime);
     report.positions.push(beforeEval.scoreWhite);
     for(let i=0;i<history.length;i++){
@@ -254,8 +262,9 @@ async function analyseSelectedGame(gameIdOverride,options={}){
       const winPercentBefore=winPercent(beforeEval.scoreWhite*moverSign);
       const winLossPercent=Math.max(0,winPercentBefore-winPercent(afterEval.scoreWhite*moverSign));
       const afterWinPercent=winPercent(afterEval.scoreWhite*moverSign);
-      const quality=(i<10&&(game.eco||game.opening))?{label:"Théorie",kind:"book"}:classify(winLossPercent,playedUci===beforeEval.bestmove);
-      if(quality.kind!=="book"&&playedUci===beforeEval.bestmove&&((winPercentBefore<35&&afterWinPercent>=45)||(winPercentBefore>=45&&winPercentBefore<65&&afterWinPercent>=75))){quality.label="Grand coup";quality.kind="great";}
+      const isOpeningPhase=i<6&&!!(game.eco||game.opening);
+      const quality=(isOpeningPhase&&winLossPercent<5)?{label:"Théorie",kind:"book"}:classify(winLossPercent,playedUci===beforeEval.bestmove);
+      if(quality.kind!=="book"&&playedUci===beforeEval.bestmove&&((winPercentBefore<30&&afterWinPercent>=50)||(winPercentBefore>=45&&winPercentBefore<55&&afterWinPercent>=80))){quality.label="Grand coup";quality.kind="great";}
       const previousOpponentMove=report.positionDetails[report.positionDetails.length-1];
       if(quality.kind!=="book"&&move.color===userSide&&previousOpponentMove&&previousOpponentMove.color!==userSide&&previousOpponentMove.winLossPercent>=10&&winLossPercent>=2){quality.label="Occasion manquée";quality.kind="miss";}
       if(quality.kind!=="book"&&playedUci===beforeEval.bestmove&&isBrilliantSacrifice(beforeFen,playedUci,winLossPercent,beforeEval,afterEval)){quality.label="Coup brillant";quality.kind="brilliant";}
@@ -270,20 +279,36 @@ async function analyseSelectedGame(gameIdOverride,options={}){
         accuracy:accuracyFromMoves(report.moves),partial:true
       };
       if(move.color===userSide)window.CoachApp.saveGames();
+      if(move.color===userSide){
+        renderResults(game,report);
+        if(background&&report.moves.length%3===0)window.CoachApp.refresh?.();
+      }
       if(!background){
-        if(move.color===userSide&&(report.moves.length%3===0||i===history.length-1))renderResults(game,report);
         $("analysis-progress-fill").style.width=Math.round((i+1)/history.length*100)+"%";
         $("analysis-progress-label").textContent="Analyse en cours · "+(i+1)+" / "+history.length+" demi-coups · "+elapsedText(startedAt);
       }
+      // Dès que l'utilisateur quitte Mes parties, on libère Stockfish pour
+      // que l'écran demandé soit prioritaire. Les coups déjà évalués sont conservés.
+      if(background&&(backgroundPauseRequested||!isGamesPanelActive())){
+        interruptedForNavigation=true;
+        break;
+      }
     }
-    game.analysis={date:new Date().toISOString(),moves:report.moves,positions:report.positions,positionDetails:report.positionDetails,covered:report.covered,accuracy:accuracyFromMoves(report.moves),partial:false,depth:report.depth};
+    if(interruptedForNavigation){
+      game.analysis={date:new Date().toISOString(),moves:report.moves,positions:report.positions,positionDetails:report.positionDetails,covered:report.covered,accuracy:accuracyFromMoves(report.moves),partial:true,paused:true};
+      window.CoachApp.saveGames();
+      return;
+    }
+    game.analysis={date:new Date().toISOString(),moves:report.moves,positions:report.positions,positionDetails:report.positionDetails,covered:report.covered,accuracy:accuracyFromMoves(report.moves),partial:false,complete:true,depth:report.depth};
     window.CoachApp.saveGames();
+    window.CoachApp.refresh?.();
     if(!background){
       renderResults(game,report);
       if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(report.moves,game);
       $("analysis-progress-fill").style.width="100%";
-      $("analysis-progress-label").textContent="Analyse terminée · "+elapsedText(startedAt)+" · Précision : "+game.analysis.accuracy+" %.";
+      $("analysis-progress-label").textContent="Analyse terminée · "+elapsedText(startedAt)+" · "+(game.analysis.accuracy===null?"Précision non disponible (moins de 6 coups évaluables).":"Précision estimée : "+game.analysis.accuracy+" %.");
     }else{
+      renderResults(game,report);
       window.CoachApp.refresh?.();
       updateAccuracyQueueStatus();
     }
@@ -297,6 +322,7 @@ async function analyseSelectedGame(gameIdOverride,options={}){
     }else{
       game.analysis={date:new Date().toISOString(),moves:report.moves,positions:report.positions,positionDetails:report.positionDetails,covered:report.covered,accuracy:accuracyFromMoves(report.moves),partial:true};
       window.CoachApp.saveGames();
+      window.CoachApp.refresh?.();
       if(!background){
         renderResults(game,report);
         $("analysis-progress-label").textContent="Analyse interrompue après "+report.covered+" demi-coups. Les positions déjà calculées restent disponibles.";
@@ -304,15 +330,85 @@ async function analyseSelectedGame(gameIdOverride,options={}){
     }
   }finally{
     busy=false;refreshGamePicker();
+    if(background)window.CoachApp?.refresh?.();
+    if(background&&game.analysis?.partial&&!game.analysis?.paused)scheduleRecentAccuracy();
     if(!background){
       $("analyse-game-button").disabled=false;$("analyse-game-button").textContent="Analyser cette partie";
 
     }
   }
 }
+function updateAccuracyQueueStatus(){
+ const status=$("accuracy-queue-status"),button=$("accuracy-queue-button");
+ if(status)status.textContent=accuracyQueueRunning
+  ?"Calcul des précisions : "+accuracyQueueDone+" / "+accuracyQueueTotal+" · "+accuracyQueueSkipped+" ignorée(s)"
+  :accuracyQueueTotal
+   ?"Terminé : "+accuracyQueueDone+" partie(s) analysée(s), "+accuracyQueueSkipped+" ignorée(s)."
+   :"Les analyses déjà enregistrées sont conservées lors des synchronisations.";
+ if(button){button.disabled=accuracyQueueRunning||busy;button.textContent=accuracyQueueRunning?"Calcul en cours…":"Calculer les précisions manquantes";}
+}
+async function analyzeMissingAccuracies(){
+ if(accuracyQueueRunning||busy)return;
+ const games=(window.CoachApp?.getGames?.()||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+ const pending=games.filter(g=>g.pgn&&(!g.analysis||!Array.isArray(g.analysis.moves)||g.analysis.partial));
+ accuracyQueueTotal=pending.length;accuracyQueueDone=0;accuracyQueueSkipped=0;
+ if(!pending.length){accuracyQueueRunning=false;updateAccuracyQueueStatus();const status=$("accuracy-queue-status");if(status)status.textContent="Toutes les parties avec PGN disposent déjà d’une analyse complète.";return;}
+ accuracyQueueRunning=true;updateAccuracyQueueStatus();
+ for(const game of pending){
+  if(!accuracyQueueRunning||backgroundPauseRequested||!isGamesPanelActive())break;
+  try{await analyseSelectedGame(game.id,{background:true,movetime:320});if(game.analysis&&!game.analysis.partial&&Array.isArray(game.analysis.moves))accuracyQueueDone++;else accuracyQueueSkipped++;}
+  catch(error){accuracyQueueSkipped++;console.warn("Analyse de précision ignorée",game.id,error);}
+  updateAccuracyQueueStatus();
+ }
+ accuracyQueueRunning=false;updateAccuracyQueueStatus();window.CoachApp?.refresh?.();
+}
+$("accuracy-queue-button")?.addEventListener("click",analyzeMissingAccuracies);
+
+let autoRecentAnalysisSignature="";
+let autoRecentAnalysisRunning=false;
+async function analyzeRecentGamesInBackground(){
+ if(autoRecentAnalysisRunning||busy||accuracyQueueRunning||backgroundPauseRequested||!isGamesPanelActive())return;
+ const recent=(window.CoachApp?.getGames?.()||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||"")).filter(g=>g.pgn).slice(0,5);
+ const signature=user()+":"+recent.map(g=>String(g.id)).join("|");
+ if(!recent.length||signature===autoRecentAnalysisSignature)return;
+ autoRecentAnalysisSignature=signature;
+ const pending=recent.filter(g=>!g.analysis||!Array.isArray(g.analysis.moves)||g.analysis.partial);
+ if(!pending.length)return;
+ autoRecentAnalysisRunning=true;
+ try{
+  for(const game of pending){
+   if(busy)break;
+   if(game.analysis&&game.analysis.partial===false&&Array.isArray(game.analysis.moves))continue;
+   try{await analyseSelectedGame(game.id,{background:true,movetime:500});}
+   catch(error){console.info("Précision différée pour",game.id,error);}
+  }
+ }finally{
+  autoRecentAnalysisRunning=false;
+  if(backgroundPauseRequested||!isGamesPanelActive())autoRecentAnalysisSignature="";
+  window.CoachApp?.refresh?.();
+ }
+}
+function scheduleRecentAccuracy(){setTimeout(analyzeRecentGamesInBackground,1800);}
+window.addEventListener("coach:games-updated",scheduleRecentAccuracy);
+window.addEventListener("coach:account-changed",()=>{autoRecentAnalysisSignature="";scheduleRecentAccuracy();});
+window.addEventListener("coach:tab-changing",event=>{
+ if(event.detail?.tab==="games"){
+  backgroundPauseRequested=false;
+  scheduleRecentAccuracy();
+ }else{
+  backgroundPauseRequested=true;
+ }
+});
+
+async function analyzeWhenIdle(gameId,options={}){
+ while(busy)await new Promise(resolve=>setTimeout(resolve,180));
+ return analyseSelectedGame(String(gameId),options);
+}
 function openGameInCoach(gameId){
   const id=String(gameId??"");
-  document.querySelector('[data-tab="training"]')?.click();
+  document.querySelector('[data-tab="games"]')?.click();
+  const panel=$("panel-games");
+  panel?.classList.add("reviewing-game");
   refreshGamePicker();
   const select=$("analysis-game-select");
   const game=(window.CoachApp?.getGames?.()||[]).find(g=>String(g.id)===id);
@@ -321,16 +417,24 @@ function openGameInCoach(gameId){
     return false;
   }
   if(select)select.value=id;
-  $("analyse-game-button")?.scrollIntoView({behavior:"smooth",block:"center"});
-  analyseSelectedGame(id);
+  if(window.CoachReview?.open)window.CoachReview.open(id);
+  $("games-analysis-workspace")?.scrollIntoView({behavior:"smooth",block:"start"});
+  const cached=!!(game.analysis&&!game.analysis.partial&&Array.isArray(game.analysis.moves)&&game.analysis.moves.length);
+  if(cached){
+    if(window.CoachReview?.updateAnalysis)window.CoachReview.updateAnalysis(game.analysis.moves,game);
+    renderResults(game,{moves:game.analysis.moves});
+  }else{
+    analyzeWhenIdle(id,{background:true,movetime:600});
+  }
   return true;
 }
 window.addEventListener("coach:analyze-game",event=>openGameInCoach(event.detail?.gameId));
-$("analyse-game-button").addEventListener("click",()=>analyseSelectedGame());
+$("analyse-game-button").addEventListener("click",()=>analyseSelectedGame(undefined,{force:true}));
 window.addEventListener("coach:games-updated",refreshGamePicker);
 window.CoachAnalysis={
  openGame:openGameInCoach,
  analyze:gameId=>openGameInCoach(gameId),
+ async analyzeAccuracy(gameId){return analyzeWhenIdle(gameId,{background:true,movetime:500});},
  async analyzePosition(fen){
   const request=++positionRequestId;
   while(busy){
