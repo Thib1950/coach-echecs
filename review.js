@@ -157,7 +157,7 @@ function render(){
   cells+='<div class="'+classes.join(" ")+'" data-square="'+square+'">'+(p?'<img class="chess-piece-image" src="https://lichess1.org/assets/piece/cburnett/'+(p.color==="w"?"w":"b")+p.type.toUpperCase()+'.svg" alt="'+glyph[p.color+p.type]+'">':"")+rankLabel+fileLabel+badge+'</div>';
  }));
  let arrows="";
- const arrowDetail=freeBoard?(freeAnalysis?{bestUci:freeAnalysis.bestmove,playedUci:freeLastMove,kind:"good"}:null):(variationIndex===0?detail:null);
+ const arrowDetail=freeBoard?(freeAnalysis&&!freeAnalysisError?{bestUci:freeAnalysis.bestmove,playedUci:freeLastMove,kind:"good"}:null):(variationIndex===0?detail:null);
  if(arrowDetail){
   const best=arrowDetail.bestUci,played=arrowDetail.playedUci;
   const colors={brilliant:"#42b7ff",great:"#54a9f5",best:"#72cf79",excellent:"#82c96b",good:"#82c96b",book:"#aeb8c4",inaccuracy:"#f0c34e",mistake:"#f39a42",blunder:"#ef5b62",miss:"#df75c8"};
