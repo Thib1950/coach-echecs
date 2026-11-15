@@ -26,6 +26,20 @@ function ensureOpeningName(game){
 function coachMessage(detail){
  if(!detail)return {title:"Position en cours",body:"Je vérifie les possibilités de cette position. Le meilleur coup et son idée apparaîtront ici.",tip:""};
  const userSide=((active?.white||"").toLowerCase()==="gone_1950"?"w":"b");
+ const openingName=frenchOpeningName(active?.opening||active?.displayOpening||"").trim();
+ if(openingName&&Number(detail.ply)<=5){
+  const name=openingName.toLowerCase();let idea="Cette ouverture cherche à développer rapidement les pièces, contrôler le centre et préparer la mise en sécurité du roi.";
+  if(name.includes("française"))idea="Les Noirs contestent le centre avec …d5 et cherchent à miner le duo de pions blancs e4–d4. Le fou c8 peut être un peu enfermé : il faudra le libérer au bon moment.";
+  else if(name.includes("sicilienne"))idea="Les Noirs répondent de façon asymétrique à 1.e4 : ils contestent le centre depuis l’aile dame et cherchent un jeu dynamique, souvent avec une colonne c semi-ouverte.";
+  else if(name.includes("caro-kann"))idea="Les Noirs soutiennent …d5 avec …c6 pour construire un centre solide et libérer leur fou de cases blanches avant de développer.";
+  else if(name.includes("espagnole"))idea="Les Blancs développent le fou en b5 pour exercer une pression sur le cavalier c6, défenseur du pion e5, tout en préparant un centre solide.";
+  else if(name.includes("italienne"))idea="Les Blancs développent rapidement le fou vers c4, visent la case f7 et préparent le roque ainsi qu’une présence centrale avec d3 ou c3.";
+  else if(name.includes("londres"))idea="Les Blancs construisent un développement solide avec les pions d4 et e3, puis placent le fou de cases noires en f4. Le plan est simple : roquer et préparer e4.";
+  else if(name.includes("gambit dame"))idea="Les Blancs proposent le pion c4 pour détourner le pion d5 et construire un centre fort avec e4. La pression porte surtout sur le centre et la colonne c.";
+  else if(name.includes("est-indienne"))idea="Les Noirs laissent les Blancs occuper le centre, puis le contestent avec …e5 ou …c5. Ils cherchent souvent une attaque sur l’aile roi.";
+  return {title:"Idée de l’ouverture",body:"Ton adversaire joue "+openingName+". "+idea,tip:""};
+ }
+
  if(detail.contextOpponent){const opponentLoss=Math.max(0,Number(detail.opponentMove?.loss)||0);const opponentText=opponentLoss<2?"Son coup est précis et maintient l’équilibre.":opponentLoss<10?"Son coup manque un peu de précision : tu peux chercher à améliorer ta position.":opponentLoss<20?"Son coup est une imprécision qui te laisse une occasion de prendre l’initiative.":"Son coup est une erreur : profite-en pour reprendre l’initiative.";return {title:"Après le coup adverse",body:opponentText+(detail.best?" La réponse conseillée ici est "+detail.best+".":" Cherche une réponse qui développe tes pièces et protège ton roi."),tip:""};}
  if(detail.color!==userSide){return {title:"Coup adverse",body:"Ton adversaire vient de jouer "+(detail.played||"un coup")+".",tip:""};}
  if(detail.loss===null||detail.loss===undefined){const openingTip=(active&&userSide==="b"&&detail.ply===1)?historicalCounterOpening():null;return {title:openingTip?"Ta meilleure réponse historique":"À toi de jouer",body:openingTip?("Contre ce premier coup, dans tes parties avec les Noirs, ton meilleur résultat vient de "+openingTip.name+" : "+openingTip.rate+" % de victoires sur "+openingTip.count+" partie(s)."):(detail.best?"Le moteur recommande "+detail.best+". Cherche ce coup sur l’échiquier, puis regarde l’idée derrière le développement.":"Trouve un coup qui développe tes pièces et contrôle le centre."),tip:""};}
@@ -166,7 +180,7 @@ function render(){
  const userSide=((active?.white||"").toLowerCase()==="gone_1950"?"w":"b");
  const coachDetail=!freeBoard&&index>0?(activeAnalysisMove||(lastMoveDetail?.color!==userSide&&responseDetail?{...responseDetail,contextOpponent:true,opponentMove:lastMoveDetail}:lastMoveDetail)):null;
  const coach=coachMessage(coachDetail);
- const freeCoachText=freeAnalysis?"Stockfish conseille "+(freeAnalysis.bestSan||"un coup actif")+" pour la suite de la position.":freeAnalysisError||"Analyse de la position en cours…";
+ const freeCoachText=freeAnalysis?(freeAnalysisError?freeAnalysisError+" Dernière recommandation : "+(freeAnalysis.bestSan||"un coup actif")+".":"Stockfish conseille "+(freeAnalysis.bestSan||"un coup actif")+" pour la suite de la position."):(freeAnalysisError||"Analyse de la position en cours…");
  const coachPanel='<aside class="review-side"><section class="coach-card"><div class="coach-avatar" aria-hidden="true">♞</div><div class="coach-identity"><strong>Ton coach</strong><span>'+(freeBoard?"Analyse en direct":"Analyse du coup")+'</span></div><div class="coach-message"><strong>'+esc(freeBoard?(freeAnalysis?"Position analysée":"Analyse en cours"): (coachDetail?coach.title:"Choisis un coup"))+'</strong>'+(freeBoard?'<p>'+esc(freeCoachText)+'</p>':(coachDetail?'<p>'+esc(coach.body)+'</p>':'<p>Avance dans la partie pour afficher l’explication du coup et la meilleure idée.</p>'))+'</div></section></aside>';
  const controls=freeBoard
   ?'<div class="replay-controls free-navigation"><button class="icon-nav" data-free-reset="1" title="Revenir à la position de départ" aria-label="Revenir à la position de départ">|◀</button><button class="icon-nav" data-free-undo="1" '+(freeBoard.history().length?"":"disabled")+' title="Annuler le coup" aria-label="Annuler le coup">◀</button><button class="icon-nav" data-free-redo="1" '+(freeRedo.length?"":"disabled")+' title="Rejouer le coup annulé" aria-label="Rejouer le coup annulé">▶</button><button class="review-free-exit" data-free-exit="1">Reprendre la relecture</button></div>'
@@ -212,7 +226,7 @@ function playMoveSound(direction,capture=false){
  }catch(error){console.debug("Son des coups indisponible",error);}
 }
 async function analyzeFreePosition(){
- if(!freeBoard)return;const seq=++freeAnalysisSeq;freeAnalysis=null;freeAnalysisError="Stockfish analyse la position…";render();
+ if(!freeBoard)return;const seq=++freeAnalysisSeq;freeAnalysisError=freeAnalysis?"Stockfish actualise l’évaluation…":"Stockfish analyse la position…";render();
  try{if(!window.CoachAnalysis?.analyzePosition)throw new Error("Le moteur d’analyse n’est pas disponible.");const result=await window.CoachAnalysis.analyzePosition(freeBoard.fen());if(seq!==freeAnalysisSeq||!freeBoard)return;freeAnalysis=result;freeAnalysisError="";}
  catch(error){if(seq!==freeAnalysisSeq)return;freeAnalysisError=error.message||"L’analyse de cette position a échoué.";}
  if(seq===freeAnalysisSeq&&freeBoard)render();
