@@ -1,11 +1,73 @@
-const USERNAME = "gone_1950";
-const STORAGE_KEY = "coach-echecs-v1";
+const LEGACY_STORAGE_KEY = "coach-echecs-v1";
+let USERNAME = (localStorage.getItem("coach-echecs-account") || "gone_1950").trim().toLowerCase();
+const storageKey = () => LEGACY_STORAGE_KEY + ":" + USERNAME;
 let games = [];
+let syncInFlight = false;
 const $ = (id) => document.getElementById(id);
 const avatarCache=new Map(),avatarPending=new Set();
+let coachAudioContext=null;
+const soundStorageKey="coach-echecs-piece-sound";
+const soundProfiles={chess:{noise:.052,low:155,high:920,body:185,decay:.105},wood:{noise:.078,low:115,high:680,body:138,decay:.145},soft:{noise:.035,low:210,high:1120,body:245,decay:.075}};
+function playPieceSound(move={},style){
+ const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return;
+ if(!coachAudioContext)coachAudioContext=new AudioCtx();
+ const ctx=coachAudioContext;if(ctx.state==="suspended")ctx.resume();
+ const profile=soundProfiles[style||localStorage.getItem(soundStorageKey)||"chess"]||soundProfiles.chess;
+ const capture=!!move?.captured,now=ctx.currentTime,duration=profile.decay*(capture?1.35:1);
+ const length=Math.max(1,Math.floor(ctx.sampleRate*duration)),buffer=ctx.createBuffer(1,length,ctx.sampleRate),data=buffer.getChannelData(0);
+ for(let i=0;i<length;i++){const t=i/length;data[i]=(Math.random()*2-1)*Math.pow(1-t,capture?2.2:2.8);}
+ const noise=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),noiseGain=ctx.createGain();
+ noise.buffer=buffer;filter.type="bandpass";filter.frequency.setValueAtTime(capture?profile.low*1.8:profile.high,now);filter.Q.value=capture?1.15:1.7;
+ noiseGain.gain.setValueAtTime(.0001,now);noiseGain.gain.exponentialRampToValueAtTime(profile.noise*(capture?1.3:1),now+.003);noiseGain.gain.exponentialRampToValueAtTime(.0001,now+duration);
+ noise.connect(filter);filter.connect(noiseGain);noiseGain.connect(ctx.destination);noise.start(now);noise.stop(now+duration);
+ const body=ctx.createOscillator(),bodyGain=ctx.createGain(),bodyFilter=ctx.createBiquadFilter();
+ body.type="sine";body.frequency.setValueAtTime(capture?profile.body*.72:profile.body,now);body.frequency.exponentialRampToValueAtTime(profile.body*.52,now+duration*.8);
+ bodyFilter.type="lowpass";bodyFilter.frequency.value=profile.low*5;
+ bodyGain.gain.setValueAtTime(.0001,now);bodyGain.gain.exponentialRampToValueAtTime(capture?.09:.055,now+.004);bodyGain.gain.exponentialRampToValueAtTime(.0001,now+duration);
+ body.connect(bodyFilter);bodyFilter.connect(bodyGain);bodyGain.connect(ctx.destination);body.start(now);body.stop(now+duration);
+ if(capture){const tick=ctx.createOscillator(),tickGain=ctx.createGain();tick.type="triangle";tick.frequency.setValueAtTime(profile.high*.9,now);tick.frequency.exponentialRampToValueAtTime(profile.high*.45,now+.045);tickGain.gain.setValueAtTime(.0001,now);tickGain.gain.exponentialRampToValueAtTime(.035,now+.002);tickGain.gain.exponentialRampToValueAtTime(.0001,now+.05);tick.connect(tickGain);tickGain.connect(ctx.destination);tick.start(now);tick.stop(now+.052);}
+}
+window.CoachSound={
+ getStyle(){return localStorage.getItem(soundStorageKey)||"chess";},
+ setStyle(style){if(!soundProfiles[style])return;localStorage.setItem(soundStorageKey,style);document.querySelectorAll("[data-sound-style]").forEach(button=>button.classList.toggle("active",button.dataset.soundStyle===style));},
+ play(move){try{playPieceSound(move);}catch(error){console.debug("Son du coup indisponible",error);}},
+ preview(style){try{this.setStyle(style);playPieceSound({captured:false},style);}catch(error){console.debug("Aperçu sonore indisponible",error);}}
+};
 
-function readStoredGames(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]")}catch{return []}}
-function saveGames(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(games))}catch(e){setMessage("Le stockage du navigateur est plein. Exporte tes parties en PGN pour les conserver.")}}
+function readStoredGames(){
+ try{
+  const developmentData=localStorage.getItem(storageKey());
+  if(developmentData){
+   const parsed=JSON.parse(developmentData);
+   if(Array.isArray(parsed)&&parsed.length)return parsed;
+   // Un ancien écran pouvait créer un profil vide avant la migration.
+   // Pour le compte historique, préférer une sauvegarde existante non vide.
+   if(USERNAME!=="gone_1950")return Array.isArray(parsed)?parsed:[];
+  }
+  if(USERNAME==="gone_1950"){
+   const legacy=localStorage.getItem(LEGACY_STORAGE_KEY);
+   if(legacy){const imported=JSON.parse(legacy);if(Array.isArray(imported)&&imported.length){localStorage.setItem(storageKey(),JSON.stringify(imported));return imported;}}
+   const stableData=localStorage.getItem("coach-echecs-v1");
+   if(stableData){const imported=JSON.parse(stableData);if(Array.isArray(imported)&&imported.length){localStorage.setItem(storageKey(),JSON.stringify(imported));return imported;}}
+  }
+  return [];
+ }catch(error){console.warn("Lecture de l'historique local impossible",error);return []}
+}
+function saveGames(){try{localStorage.setItem(storageKey(),JSON.stringify(games))}catch(e){setMessage("Le stockage du navigateur est plein. Exporte tes parties en PGN pour les conserver.")}}
+async function switchChessAccount(){
+ const field=$("chess-account-input"),next=String(field?.value||"").trim().replace(/^@/,"").toLowerCase();
+ if(!/^[a-z0-9_-]{2,30}$/.test(next)){setMessage("Saisis un identifiant Chess.com valide (2 à 30 caractères).");return;}
+ if(next===USERNAME){setMessage("Ce compte est déjà connecté : synchronisation de ses parties…");await syncChessCom();return;}
+ saveGames();USERNAME=next;localStorage.setItem("coach-echecs-account",USERNAME);
+ games=readStoredGames();
+ const greeting=$("dashboard-greeting-name");if(greeting)greeting.textContent=USERNAME;
+ const accountName=$("account-menu-name");if(accountName)accountName.textContent=USERNAME;
+ const topAccountName=$("account-name");if(topAccountName)topAccountName.textContent=USERNAME;
+ const input=$("chess-account-input");if(input)input.value=USERNAME;
+ render();fetchPlayerRatings();window.dispatchEvent(new CustomEvent("coach:account-changed",{detail:{username:USERNAME}}));
+ setMessage("Compte "+USERNAME+" sélectionné. Récupération automatique de son historique Chess.com…");
+ await syncChessCom();
+}
 function setMessage(message){$("sync-message").textContent=message}
 function parsePgn(pgn){
   const chunks=pgn.replace(/\r/g,"").split(/(?=\[Event )/g).filter(x=>x.trim());
@@ -35,14 +97,21 @@ function opponent(g){return (g.white||"").toLowerCase()===USERNAME.toLowerCase()
 function openingName(g){const name=(g.opening||"").trim();if(name)return name;const eco=(g.eco||"").trim();return eco?"Code ECO "+eco:""}
 function positionWinPercent(cp){const x=Math.max(-1000,Math.min(1000,Number(cp)||0));return 50+50*(2/(1+Math.exp(-0.00368208*x))-1)}
 function gameAccuracy(g){
- const moves=(g.analysis?.moves||[]).filter(m=>m.evalWhite!==null&&m.evalWhite!==undefined&&m.afterEvalWhite!==null&&m.afterEvalWhite!==undefined&&Number.isFinite(Number(m.evalWhite))&&Number.isFinite(Number(m.afterEvalWhite))&&m.color);
- if(!moves.length)return null;
- const rows=moves.map(m=>{const sign=m.color==="w"?1:-1,before=positionWinPercent(Number(m.evalWhite)*sign),after=positionWinPercent(Number(m.afterEvalWhite)*sign),loss=Math.max(0,before-after),accuracy=loss<=0?100:Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*loss)-3.1669));return {accuracy,winBefore:before};});
- const size=Math.max(2,Math.min(8,Math.round(rows.length/10)));
- const weights=rows.map((row,i)=>{const from=Math.max(0,Math.min(i-size+1,rows.length-size)),window=rows.slice(from,from+Math.min(size,rows.length)),mean=window.reduce((sum,x)=>sum+x.winBefore,0)/window.length,deviation=Math.sqrt(window.reduce((sum,x)=>sum+(x.winBefore-mean)**2,0)/window.length);return Math.max(.5,Math.min(12,deviation));});
- const weighted=rows.reduce((sum,row,i)=>sum+row.accuracy*weights[i],0)/weights.reduce((sum,w)=>sum+w,0);
- const harmonic=rows.length/rows.reduce((sum,row)=>sum+1/Math.max(.1,row.accuracy),0);
- return Math.round((weighted+harmonic)/2);
+ const moves=(g.analysis?.moves||[]).filter(m=>m.kind!=="book"&&m.color);
+ const accuracies=moves.map(m=>{
+  let loss=m.winLossPercent===null||m.winLossPercent===undefined?NaN:Number(m.winLossPercent);
+  if(!Number.isFinite(loss)){
+   if(m.evalWhite===null||m.evalWhite===undefined||m.afterEvalWhite===null||m.afterEvalWhite===undefined)return null;
+   const sign=m.color==="w"?1:-1;
+   const before=positionWinPercent(Number(m.evalWhite)*sign);
+   const after=positionWinPercent(Number(m.afterEvalWhite)*sign);
+   loss=Math.max(0,before-after);
+  }
+  return Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*Math.max(0,loss))-3.1669));
+ }).filter(value=>Number.isFinite(value));
+ // Minimum six coups évalués : pas de pourcentage trompeur sur une analyse trop courte.
+ if(accuracies.length<6)return null;
+ return Math.round(accuracies.reduce((sum,value)=>sum+value,0)/accuracies.length);
 }
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function avatarMarkup(player){const name=String(player||"Adversaire");return '<span class="player-avatar" data-player-avatar="'+escapeHtml(name)+'" aria-hidden="true">♟</span>';}
@@ -73,24 +142,30 @@ function groupOpenings(source){const groups=new Map();source.forEach(g=>{const n
 function render(){
   const wins=games.filter(g=>outcome(g)==="win").length, draws=games.filter(g=>outcome(g)==="draw").length, losses=games.filter(g=>outcome(g)==="loss").length;
   $("stat-games").textContent=games.length;$("stat-wins").textContent=wins;$("stat-losses").textContent=losses;
-  $("sync-state").textContent="Version publiée · 15/11/2026 · v39";
+  const dashValues={"dash-total-games":games.length,"dash-wins":wins,"dash-losses":losses,"dash-win-rate":games.length?Math.round(wins/games.length*100)+" %":"—"};Object.entries(dashValues).forEach(([id,value])=>{const node=$(id);if(node)node.textContent=String(value);});
+  const visibleStats={"games-total-visible":games.length,"games-wins-visible":wins,"games-losses-visible":losses,"games-draws-visible":draws};Object.entries(visibleStats).forEach(([id,value])=>{const node=$(id);if(node)node.textContent=String(value);});
+  const greeting=$("dashboard-greeting-name");if(greeting)greeting.textContent=USERNAME;
+  $("sync-state").textContent="Version développement · v40";
   const sorted=[...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   $("recent-games").innerHTML=sorted.length?sorted.slice(0,4).map(recentGameHtml).join(""):'<div class="empty-state">Tes parties apparaîtront ici après l’import.</div>';
   renderGames(sorted);renderBars(wins,draws,losses);renderOpenings();renderTraining();renderProgressStats(wins,draws,losses);hydratePlayerAvatars();
 }
-function gameHtml(g){
+function gameHtml(g,index=0){
  const o=outcome(g),accuracy=gameAccuracy(g);
- const accuracyText=!g.analysis?.partial&&accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
+ const hasCompleteAnalysis=!!(g.analysis&&!g.analysis.partial&&Array.isArray(g.analysis.moves));
+ const accuracyText=hasCompleteAnalysis?(accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":"—"):(g.analysis?.partial?"En cours…":(g.pgn?(index<5?"En attente…":""):"—"));
+ const calculateButton=g.pgn&&index>=5&&!hasCompleteAnalysis?'<button type="button" class="accuracy-calculate-button" data-calculate-accuracy="'+escapeHtml(g.id)+'" '+(g.analysis?.partial&&!g.analysis?.paused?'disabled':'')+'>'+(g.analysis?.partial&&!g.analysis?.paused?'En cours…':'Calculer')+'</button>':'';
+
  const side=userColor(g),opponentElo=side==="white"?g.blackElo:side==="black"?g.whiteElo:"";
- return '<div class="game-row game-row-expanded"><div class="game-row-info"><div class="player-line">'+avatarMarkup(opponent(g))+'<div class="game-opponent">'+escapeHtml(opponent(g)||"Adversaire")+'</div></div><div class="game-meta">'+formatDate(g.date)+'</div></div><div class="game-list-accuracy"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="analysis-icon-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir et analyser cette partie" title="Revoir et analyser cette partie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg></button></div>';
+ const elo=value=>value&&Number(value)>0?Number(value).toLocaleString("fr-FR"):"—";
+ return '<div class="game-row game-row-expanded"><div class="game-row-info"><div class="player-line">'+avatarMarkup(opponent(g))+'<div class="game-opponent">'+escapeHtml(opponent(g)||"Adversaire")+'</div><span class="game-opponent-elo">'+elo(opponentElo)+'</span></div><div class="game-meta">'+formatDate(g.date)+'</div></div><div class="game-list-accuracy"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong>'+calculateButton+'</div><span class="game-result '+o+'">'+resultLabel(o)+'</span><button type="button" class="analysis-icon-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir et analyser cette partie" title="Revoir et analyser cette partie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg></button></div>';
 }
 function recentGameHtml(g){
- const side=userColor(g),opponentElo=side==="white"?g.blackElo:side==="black"?g.whiteElo:"";
- const accuracy=gameAccuracy(g);
- const accuracyText=!g.analysis?.partial&&accuracy!==null&&accuracy!==undefined&&Number.isFinite(Number(accuracy))?Math.round(accuracy)+" %":(g.pgn?"Calcul…":"—");
- const result=outcome(g);return '<div class="recent-game-row"><div class="recent-game-main"><div class="recent-game-player"><div class="player-line">'+avatarMarkup(opponent(g))+'<div class="recent-game-opponent">'+escapeHtml(opponent(g)||"Adversaire")+'</div></div><span class="recent-game-result '+result+'">'+resultLabel(result)+'</span><div class="recent-game-elo">'+(opponentElo?escapeHtml(opponentElo):"—")+'<small>ELO</small></div></div><div class="recent-game-meta">'+formatDate(g.date)+'</div></div><div class="recent-game-precision"><span>MA PRÉCISION</span><strong>'+accuracyText+'</strong></div><button type="button" class="recent-review-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir cette partie">↗</button></div>';
+ const result=outcome(g);
+ const icon=result==="win"?'<span class="recent-result-icon win" role="img" aria-label="Victoire" title="Victoire"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 10 3.2 3.2L15.5 6"/></svg></span>':result==="draw"?'<span class="recent-result-icon draw" role="img" aria-label="Égalité" title="Égalité"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 7.5h10M5 12.5h10"/></svg></span>':result==="loss"?'<span class="recent-result-icon loss" role="img" aria-label="Défaite" title="Défaite"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8m0-8-8 8"/></svg></span>':'<span class="recent-result-icon unknown" role="img" aria-label="Résultat inconnu" title="Résultat inconnu">·</span>';
+ return '<div class="recent-game-row"><div class="recent-game-main"><div class="recent-game-player"><div class="player-line">'+avatarMarkup(opponent(g))+'<div class="recent-game-opponent">'+escapeHtml(opponent(g)||"Adversaire")+'</div></div>'+icon+'</div></div><button type="button" class="recent-review-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Revoir la partie contre '+escapeHtml(opponent(g)||"Adversaire")+'" title="Revoir cette partie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg></button></div>';
 }
-function renderGames(sorted){const q=($("game-search").value||"").toLowerCase(),f=$("result-filter").value;const filtered=sorted.filter(g=>(opponent(g)||"").toLowerCase().includes(q)&&(f==="all"||outcome(g)===f));$("games-list").innerHTML=filtered.length?filtered.map(gameHtml).join(""):'<div class="empty-state">Aucune partie ne correspond à ce filtre.</div>'}
+function renderGames(sorted){const q=($("game-search").value||"").toLowerCase(),f=$("result-filter").value;const filtered=sorted.filter(g=>(opponent(g)||"").toLowerCase().includes(q)&&(f==="all"||outcome(g)===f));$("games-list").innerHTML=filtered.length?filtered.map(g=>gameHtml(g,sorted.indexOf(g))).join(""):'<div class="empty-state">Aucune partie ne correspond à ce filtre.</div>'}
 function renderBars(w,d,l){const n=games.length;if(!n){$("result-bars").innerHTML='<p class="muted">Les statistiques apparaîtront après l’import.</p>';return}const known=w+d+l,rows=[["Victoires",w],["Nulles",d],["Défaites",l]];if(known<n)rows.push(["Non classées",n-known]);const total='<div class="results-total"><span>♟ TOTAL DES PARTIES</span><strong>'+n+'</strong></div>';const items=rows.map(([label,v])=>{const pct=v/n*100;return '<div class="bar-item"><span>'+label+'</span><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%"></div></div><strong>'+pct.toLocaleString("fr-FR",{maximumFractionDigits:1})+' %</strong></div>';}).join("");$("result-bars").innerHTML=total+items;}
 function renderOpenings(){/* Le répertoire est géré par openings.js, chargé uniquement à l'ouverture de l'onglet. */}
 
@@ -122,40 +197,107 @@ function renderTraining(){
     else if(previousAccuracy===null)countNode.textContent="Moyenne sur "+recent.length+" partie(s) analysée(s) · une comparaison apparaîtra avec une deuxième partie.";
     else countNode.textContent="Moyenne des "+recent.length+" dernières parties comparée aux "+previous.length+" précédentes.";
   }
+  const analyzedMoves=analyzed.flatMap(game=>(game.analysis?.moves||[]).filter(move=>["blunder","mistake","inaccuracy","miss"].includes(move.kind)));
+  const priorities=[["blunder","Gaffes","Réduire les grosses pertes de matériel et les menaces adverses."],["mistake","Erreurs","Prendre le temps de vérifier les menaces et les pièces non protégées."],["inaccuracy","Imprécisions","Comparer les coups candidats avant de jouer."],["miss","Occasions manquées","Repérer les tactiques et les coups forcing disponibles."]];
+  const focus=priorities.map(([kind,label,advice])=>({kind,label,advice,count:analyzedMoves.filter(move=>move.kind===kind).length})).sort((a,b)=>b.count-a.count)[0];
+  const coachSummary=$("coach-plan-summary"),coachBadge=$("coach-plan-badge"),coachContent=$("coach-plan-content");
+  if(coachContent){
+    if(!analyzed.length){if(coachSummary)coachSummary.textContent="Une analyse de partie est nécessaire pour établir ton profil.";if(coachBadge)coachBadge.textContent="À construire";coachContent.innerHTML='<p class="empty-state compact">Lance une analyse Stockfish depuis Mes parties. Ton coach identifiera ensuite tes erreurs les plus fréquentes et proposera un entraînement ciblé.</p>';}
+    else if(!analyzedMoves.length){if(coachSummary)coachSummary.textContent="Les parties analysées ne révèlent pas encore de tendance exploitable.";if(coachBadge)coachBadge.textContent=analyzed.length+" analysée(s)";coachContent.innerHTML='<p class="muted">Continue à analyser tes parties pour affiner ton profil de jeu.</p>';}
+    else{if(coachSummary)coachSummary.textContent="Basé sur "+analyzed.length+" partie(s) analysée(s) et "+analyzedMoves.length+" erreur(s) ou occasion(s) manquée(s).";if(coachBadge)coachBadge.textContent="Priorité détectée";coachContent.innerHTML='<div class="coach-focus-card"><span class="coach-focus-icon">♞</span><div><strong>Priorité : '+focus.label.toLowerCase()+'</strong><p>'+focus.advice+'</p><small>'+focus.count+' occurrence(s) dans les parties analysées</small></div></div><div class="coach-plan-actions"><button type="button" class="primary-button" data-goto="puzzles">Travailler avec les puzzles</button><button type="button" class="secondary-button" data-goto="games">Revoir mes parties</button></div>';coachContent.querySelectorAll("[data-goto]").forEach(button=>button.addEventListener("click",()=>document.querySelector('[data-tab="'+button.dataset.goto+'"]')?.click()));}
+  }
   $("training-games").innerHTML=losses.length?losses.slice(0,5).map(g=>'<div class="game-row training-game-row"><div><div class="game-opponent">Défaite contre '+escapeHtml(opponent(g)||"Adversaire")+'</div><div class="game-meta">'+formatDate(g.date)+'</div></div><button type="button" class="analysis-icon-button" data-open-game="'+escapeHtml(g.id)+'" aria-label="Analyser cette partie" title="Analyser cette partie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg></button></div>').join(""):'<div class="empty-state">Aucune défaite enregistrée dans les parties importées.</div>';
 }
 async function fetchPlayerRatings(){
- const blitz=$("rating-blitz"),rapid=$("rating-rapid");if(!blitz||!rapid)return;
- blitz.textContent="…";rapid.textContent="…";
- try{const response=await fetch("https://api.chess.com/pub/player/"+USERNAME+"/stats",{headers:{"Accept":"application/json"}});if(!response.ok)throw new Error("Profil indisponible");const stats=await response.json();const b=stats.chess_blitz?.last?.rating,r=stats.chess_rapid?.last?.rating;blitz.textContent=Number.isFinite(Number(b))?Number(b).toLocaleString("fr-FR"):"—";rapid.textContent=Number.isFinite(Number(r))?Number(r).toLocaleString("fr-FR"):"—";}
- catch{blitz.textContent="—";rapid.textContent="—";}
+ const accountAtStart=USERNAME;
+ const blitzNodes=[$("rating-blitz"),$("dashboard-rating-blitz")].filter(Boolean),rapidNodes=[$("rating-rapid"),$("dashboard-rating-rapid")].filter(Boolean);
+ if(!blitzNodes.length&&!rapidNodes.length)return;
+ [...blitzNodes,...rapidNodes].forEach(node=>node.textContent="…");
+ try{const response=await fetch("https://api.chess.com/pub/player/"+encodeURIComponent(accountAtStart)+"/stats",{headers:{"Accept":"application/json"},cache:"no-store"});if(!response.ok)throw new Error("Profil indisponible");const stats=await response.json();if(USERNAME!==accountAtStart)return;const b=stats.chess_blitz?.last?.rating,r=stats.chess_rapid?.last?.rating;const bv=Number.isFinite(Number(b))?Number(b).toLocaleString("fr-FR"):"—",rv=Number.isFinite(Number(r))?Number(r).toLocaleString("fr-FR"):"—";blitzNodes.forEach(node=>node.textContent=bv);rapidNodes.forEach(node=>node.textContent=rv);}
+ catch{if(USERNAME!==accountAtStart)return;[...blitzNodes,...rapidNodes].forEach(node=>node.textContent="—");}
 }
 async function syncChessCom(){
-  const buttons=[$("sync-button"),$("sync-button-games")];buttons.forEach(b=>{b.disabled=true;b.textContent="Synchronisation…"});
-  setMessage("Connexion à l'archive publique Chess.com…");
-  try{
-    const response=await fetch("https://api.chess.com/pub/player/"+USERNAME+"/games/archives",{headers:{"Accept":"application/json"}});
-    if(!response.ok)throw new Error("Chess.com a répondu "+response.status);
-    const archiveData=await response.json(), urls=(archiveData.archives||[]).slice(-3).reverse();
-    if(!urls.length)throw new Error("Aucune archive trouvée pour ce compte.");
-    let imported=[];
-    for(const url of urls){setMessage("Récupération de "+url.split("/").slice(-2).join("/")+"…");const res=await fetch(url,{headers:{"Accept":"application/json"}});if(!res.ok)continue;const data=await res.json();imported=imported.concat((data.games||[]).map(normalizeGame))}
-    if(!imported.length)throw new Error("Aucune partie trouvée dans les trois dernières archives.");
-    const byId=new Map(games.map(g=>[g.id,g]));imported.forEach(g=>byId.set(g.id,g));games=[...byId.values()].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-    saveGames();render();await fetchPlayerRatings();setMessage(imported.length+" parties récupérées ou actualisées. Les données sont conservées sur cet appareil.");$("sync-state").textContent="Version publiée · 15/11/2026 · v39";
-  }catch(e){setMessage("La synchronisation automatique n'a pas abouti : "+e.message+". Tu peux importer un fichier PGN depuis Chess.com.")}
-  finally{buttons.forEach(b=>{b.disabled=false;b.textContent=b.id==="sync-button"?"Synchroniser les parties":"Synchroniser"})}
+ if(syncInFlight)return;
+ syncInFlight=true;
+ const buttons=[$("sync-button"),$("sync-button-games")].filter(Boolean);
+ const labelMap=new Map(buttons.map(b=>[b,b.textContent]));
+ buttons.forEach(b=>{b.disabled=true;b.textContent="Synchronisation…"});
+ setMessage("Connexion à l'archive Chess.com de "+USERNAME+"…");
+ const accountAtStart=USERNAME;
+ try{
+  const response=await fetch("https://api.chess.com/pub/player/"+encodeURIComponent(accountAtStart)+"/games/archives",{headers:{"Accept":"application/json"},cache:"no-store"});
+  if(!response.ok)throw new Error("Chess.com a répondu "+response.status);
+  const archiveData=await response.json();
+  const urls=Array.isArray(archiveData.archives)?archiveData.archives:[];
+  if(!urls.length)throw new Error("Aucune archive trouvée pour ce compte.");
+  const metaKey=LEGACY_STORAGE_KEY+":sync-meta:"+accountAtStart;
+  let syncMeta={};try{syncMeta=JSON.parse(localStorage.getItem(metaKey)||"{}")||{};}catch{}
+  // Première synchronisation : historique complet. Ensuite, seuls les deux derniers mois
+  // sont revalidés à chaque lancement ; les archives anciennes restent en mémoire.
+  const needsHistoryRepair=!games.length||(Number(syncMeta.gameCount)>0&&games.length<Number(syncMeta.gameCount));
+  const archivesToCheck=syncMeta.fullHistory&&!needsHistoryRepair?urls.slice(-3):urls;
+  let imported=[],successfulArchives=0,failedArchives=0;
+  for(let i=archivesToCheck.length-1;i>=0;i--){
+   if(USERNAME!==accountAtStart)throw new Error("Le compte actif a changé pendant la synchronisation.");
+   const url=archivesToCheck[i];
+   setMessage("Récupération des archives "+(archivesToCheck.length-i)+"/"+archivesToCheck.length+"…");
+   try{
+    const res=await fetch(url,{headers:{"Accept":"application/json"},cache:"no-store"});
+    if(!res.ok){failedArchives++;continue;}
+    const data=await res.json();successfulArchives++;
+    if(Array.isArray(data.games))imported.push(...data.games.map(normalizeGame));
+   }catch(error){failedArchives++;console.warn("Archive Chess.com ignorée",url,error);}
+  }
+  if(!successfulArchives)throw new Error("Aucune archive n'a pu être récupérée. Les parties déjà enregistrées n'ont pas été modifiées.");
+  if(USERNAME!==accountAtStart)throw new Error("Le compte actif a changé avant l'enregistrement.");
+  const byId=new Map(games.map(g=>[String(g.id),g]));
+  const knownIds=new Set(byId.keys());
+  const newCount=imported.filter(g=>!knownIds.has(String(g.id))).length;
+  imported.forEach(g=>{
+   const key=String(g.id),previous=byId.get(key);
+   const mergedGame={...(previous||{}),...g};
+   if(previous?.analysis)mergedGame.analysis=previous.analysis;
+   byId.set(key,mergedGame);
+  });
+  const merged=[...byId.values()].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  // Ne jamais remplacer un historique local non vide par un résultat vide.
+  if(merged.length){games=merged;saveGames();render();}
+  if(!failedArchives){try{localStorage.setItem(metaKey,JSON.stringify({fullHistory:true,lastSync:Date.now(),gameCount:merged.length}));}catch{}}
+  await fetchPlayerRatings();
+  const status=failedArchives?(" Synchronisation partielle : "+failedArchives+" archive(s) indisponible(s)."):"";
+  setMessage("Synchronisation terminée : "+newCount+" nouvelle(s) partie(s), "+imported.length+" partie(s) vérifiée(s) dans "+successfulArchives+" archive(s). "+games.length+" parties au total ; analyses conservées."+status);
+  $("sync-state").textContent="Compte connecté · "+accountAtStart;
+ }catch(e){
+  // L'historique en mémoire et dans localStorage reste intact en cas d'échec réseau.
+  setMessage("Synchronisation impossible : "+e.message+" Les parties déjà importées sont conservées.");
+  console.error("Chess.com sync failed",e);
+ }finally{
+  buttons.forEach(b=>{b.disabled=false;b.textContent=labelMap.get(b)||"Synchroniser mes parties";});
+  syncInFlight=false;
+  if(USERNAME!==accountAtStart)setTimeout(()=>syncChessCom(),150);
+ }
 }
-function importPgnFile(file){if(!file)return;const reader=new FileReader();reader.onload=()=>{const added=parsePgn(String(reader.result||""));if(!added.length){setMessage("Je n'ai pas reconnu de parties dans ce fichier PGN.");return}const byId=new Map(games.map(g=>[g.id,g]));added.forEach(g=>byId.set(g.id,g));games=[...byId.values()];saveGames();render();setMessage(added.length+" partie(s) importée(s) depuis le fichier PGN.")};reader.onerror=()=>setMessage("Impossible de lire ce fichier.");reader.readAsText(file)}
+function importPgnFile(file){if(!file)return;const reader=new FileReader();reader.onload=()=>{const added=parsePgn(String(reader.result||""));if(!added.length){setMessage("Je n'ai pas reconnu de parties dans ce fichier PGN.");return}const byId=new Map(games.map(g=>[String(g.id),g]));added.forEach(g=>{const previous=byId.get(String(g.id));const sameGame=previous&&previous.pgn&&g.pgn&&previous.pgn===g.pgn;byId.set(String(g.id),{...(sameGame?previous:{}),...g,...(sameGame&&previous.analysis&&!g.analysis?{analysis:previous.analysis}:{})});});games=[...byId.values()];saveGames();render();setMessage(added.length+" partie(s) importée(s) depuis le fichier PGN.")};reader.onerror=()=>setMessage("Impossible de lire ce fichier.");reader.readAsText(file)}
 let openingsModuleLoaded=false;
 document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
+ if(btn.hasAttribute("data-opening-back"))return;
+ window.dispatchEvent(new CustomEvent("coach:tab-changing",{detail:{tab:btn.dataset.tab,fromPanel:document.querySelector(".panel.active")?.id||""}}));
+ // Nettoyage explicite des états propres aux écrans d'ouverture avant tout changement de page.
+ document.querySelectorAll(".opening-study-overlay").forEach(overlay=>overlay.remove());
+ $("panel-openings")?.classList.remove("opening-exercise-active");
  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===btn));
+ const mainTabs=document.querySelector(".tabs");if(mainTabs)mainTabs.classList.toggle("tabs-internal",btn.dataset.tab!=="dashboard");
  document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id==="panel-"+btn.dataset.tab));
  if(btn.dataset.tab==="openings"&&!openingsModuleLoaded){openingsModuleLoaded=true;import("./openings.js").catch(error=>{openingsModuleLoaded=false;console.error(error);$("opening-table").innerHTML='<div class="empty-state">Impossible de charger le module des ouvertures. Réessaie en ouvrant cet onglet.</div>';});}
 }));
-document.querySelectorAll("[data-goto]").forEach(btn=>btn.addEventListener("click",()=>document.querySelector('[data-tab="'+btn.dataset.goto+'"]').click()));
-$("sync-button").addEventListener("click",syncChessCom);$("sync-button-games").addEventListener("click",syncChessCom);$("pgn-file").addEventListener("change",e=>importPgnFile(e.target.files[0]));$("game-search").addEventListener("input",()=>renderGames([...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""))));$("result-filter").addEventListener("change",()=>renderGames([...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""))));
-document.addEventListener("click",e=>{const b=e.target.closest("[data-open-game]");if(!b)return;e.preventDefault();if(window.CoachAnalysis?.openGame){window.CoachAnalysis.openGame(b.dataset.openGame);return;}window.dispatchEvent(new CustomEvent("coach:analyze-game",{detail:{gameId:b.dataset.openGame}}));});
+document.querySelectorAll("[data-goto]").forEach(btn=>btn.addEventListener("click",()=>document.querySelector('[data-tab="'+btn.dataset.goto+'"]')?.click()));
+ document.querySelectorAll("[data-sound-style]").forEach(button=>button.addEventListener("click",()=>window.CoachSound?.preview(button.dataset.soundStyle)));window.CoachSound?.setStyle(window.CoachSound.getStyle());
+$("sync-button").addEventListener("click",syncChessCom);$("sync-button-games").addEventListener("click",syncChessCom);
+$("change-chess-account")?.addEventListener("click",switchChessAccount);
+$("chess-account-input")?.addEventListener("keydown",event=>{if(event.key==="Enter")switchChessAccount();});$("pgn-file").addEventListener("change",e=>importPgnFile(e.target.files[0]));$("game-search").addEventListener("input",()=>renderGames([...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""))));$("result-filter").addEventListener("change",()=>renderGames([...games].sort((a,b)=>(b.date||"").localeCompare(a.date||""))));
+document.addEventListener("click",e=>{const calculate=e.target.closest("[data-calculate-accuracy]");if(calculate){e.preventDefault();if(calculate.disabled)return;calculate.disabled=true;calculate.textContent="En cours…";window.CoachAnalysis?.analyzeAccuracy?.(calculate.dataset.calculateAccuracy).catch(error=>{console.warn("Calcul de précision impossible",error);calculate.disabled=false;calculate.textContent="Réessayer";});return;}const b=e.target.closest("[data-open-game]");if(!b)return;e.preventDefault();if(window.CoachAnalysis?.openGame){window.CoachAnalysis.openGame(b.dataset.openGame);return;}window.dispatchEvent(new CustomEvent("coach:analyze-game",{detail:{gameId:b.dataset.openGame}}));});
+document.addEventListener("click",e=>{if(e.target.closest("[data-games-back]")){$("panel-games")?.classList.remove("reviewing-game");$("game-replay-area").innerHTML="";$("analysis-results").innerHTML="";}});
+const accountInput=$("chess-account-input");if(accountInput)accountInput.value=USERNAME;const accountMenuName=$("account-menu-name");if(accountMenuName)accountMenuName.textContent=USERNAME;const topAccountName=$("account-name");if(topAccountName)topAccountName.textContent=USERNAME;
 games=readStoredGames();render();fetchPlayerRatings();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   window.addEventListener("load",async()=>{
@@ -174,7 +316,8 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
 
 
 // Interface publique minimale pour le module d'analyse moteur.
-window.CoachApp = { getGames: () => games, saveGames: () => saveGames(), refresh: () => render() };
+window.CoachApp = { getGames: () => games, getUsername: () => USERNAME, accountStorageKey: () => storageKey(), saveGames: () => saveGames(), refresh: () => render() };
 const renderBeforeAnalysis = render;
 render = function(){ renderBeforeAnalysis(); window.dispatchEvent(new Event("coach:games-updated")); };
 render();
+setTimeout(()=>syncChessCom(),450);
