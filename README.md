@@ -36,4 +36,4 @@ Le dépôt contient le code de l'application, pas les parties personnelles. Les 
 - Suivi local des puzzles résolus, des sessions et des erreurs, indépendant des données de la version stable.
 - 20 leçons interactives réparties en cinq parcours, avec sauvegarde de la progression.
 
-Cette version constitue la version publiée de l'application.
+La version de développement évoluera régulièrement avant toute proposition de remplacement de la version stable.
