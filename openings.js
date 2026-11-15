@@ -50,6 +50,7 @@ function render(){
  buildGroups();const filter=$("opening-color-filter")?.value||"all",totalGames=(window.CoachApp?.getGames?.()||[]).filter(game=>filter==="all"||sideOf(game)===filter).length;
  const rows=groups.map(g=>{const games=g.games.filter(x=>filter==="all"||sideOf(x)===filter);return {...g,shown:games.length,shownGames:games,w:games.filter(x=>outcome(x)==="win").length,d:games.filter(x=>outcome(x)==="draw").length,l:games.filter(x=>outcome(x)==="loss").length,white:games.filter(x=>sideOf(x)==="white").length,black:games.filter(x=>sideOf(x)==="black").length,winRate:performance(games)};}).filter(g=>g.shown).sort((a,b)=>b.shown-a.shown||a.family.localeCompare(b.family,"fr"));
  $("opening-table").innerHTML=rows.length?rows.map(g=>{const decided=g.w+g.d+g.l,points=(g.w+g.d/2)/(decided||1),status=decided<3?"À confirmer":points<.45?"À travailler":points>=.6?"Bon repère":"À consolider";const statusClass=decided>=3&&points<.45?"needs-work":decided>=3&&points>=.6?"solid":"neutral";return '<div class="opening-family-row"><div class="opening-family-main"><strong>'+esc(g.family)+'</strong><small>Blancs : '+g.white+' partie(s) · Noirs : '+g.black+' partie(s)</small></div><div class="opening-family-status"><span class="opening-status '+statusClass+'">'+status+'</span></div><div class="opening-family-stats"><b>'+g.shown+' partie(s)</b><small>'+Math.round(g.shown/(totalGames||1)*100)+' % des parties</small><small class="opening-win-rate">'+(g.winRate===null?"—":g.winRate+" % de victoires")+'</small></div><div class="opening-family-actions"><button type="button" class="opening-family-button" data-opening-family="'+esc(g.key)+'">Étudier</button><button type="button" class="opening-family-button secondary" data-opening-family-exercise="'+esc(g.key)+'">Exercice</button></div></div>';}).join(""):'<div class="empty-state">'+(dbError?"Les noms d'ouvertures n'ont pas pu être chargés. Vérifie ta connexion puis rouvre cet onglet.":"Aucune ouverture reconnue dans tes parties importées.")+'</div>';
+ $("opening-table").querySelectorAll("[data-opening-family-exercise]").forEach(button=>button.addEventListener("click",event=>{event.preventDefault();event.stopPropagation();const group=groups.find(x=>x.key===button.dataset.openingFamilyExercise);if(group)startExercise(group);}));
  if(currentKey){const g=groups.find(x=>x.key===currentKey);if(g)renderDetail(g);}
 }
 function renderDetail(g){
@@ -73,29 +74,35 @@ function renderVariantPreview(variant,index){
  root.hidden=false;root.innerHTML='<div class="opening-preview-board">'+cells+'</div><div class="opening-preview-info"><strong>Position après '+Math.ceil(line.length/2)+' coups</strong><p>'+esc(sanLine(line))+'</p><small>Observe le placement des pièces et la structure de pions caractéristiques de cette ligne.</small></div>';
 }
 function startLineStudy(variant,index){
- const root=$("opening-preview-"+index);if(!root)return;
- const line=(variant.book?.moves?.length?variant.book.moves:gameMoves(variant.games[0]||{})).slice(0,18);
- if(!line.length){root.hidden=false;root.innerHTML='<p class="muted">Aucune suite de coups exploitable pour cette variante.</p>';return;}
- const game=variant.games[0]||{},userSide=sideOf(game)==="black"?"b":"w";let board=new Chess(),ply=0,selected=null,feedback="Joue les coups de cette ligne avec tes pièces. Le coach répond automatiquement pour l’adversaire.";
+ const preview=$("opening-preview-"+index);if(!preview)return;
+ const line=(variant.book?.moves?.length?variant.book.moves:gameMoves(variant.games[0]||{})).slice(0,24);
+ if(!line.length){preview.hidden=false;preview.innerHTML='<p class="muted">Aucune suite de coups exploitable pour cette variante.</p>';return;}
+ const game=variant.games[0]||{},userSide=sideOf(game)==="black"?"b":"w";
+ let board=new Chess(),ply=0,selected=null,feedback="Suis la flèche pour jouer le prochain coup de la ligne.";
  const autoReply=()=>{while(ply<line.length&&board.turn()!==userSide){const u=line[ply];try{board.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]});ply++;}catch{break;}}};
  autoReply();
+ const overlay=document.createElement("div");overlay.className="opening-study-overlay";overlay.setAttribute("role","dialog");overlay.setAttribute("aria-modal","true");document.body.appendChild(overlay);
+ const close=()=>overlay.remove();
  const draw=()=>{
-  const files=userSide==="w"?"abcdefgh":"hgfedcba",ranks=userSide==="w"?[8,7,6,5,4,3,2,1]:[1,2,3,4,5,6,7,8];let cells="";
-  ranks.forEach(rank=>[...files].forEach(file=>{const sq=file+rank,p=board.get(sq),light=((rank-1+(file.charCodeAt(0)-97))%2)===1;cells+='<button type="button" class="opening-square '+(light?"light":"dark")+(selected===sq?" selected":"")+'" data-study-square="'+sq+'">'+(p?'<img class="chess-piece-image" src="https://lichess1.org/assets/piece/cburnett/'+p.color+p.type.toUpperCase()+'.svg" alt="'+glyph[p.color+p.type]+'">':"")+'</button>';}));
-  root.hidden=false;root.innerHTML='<div class="opening-study-shell"><div class="opening-study-heading"><strong>Étude de la ligne · '+esc(variant.name)+'</strong><button type="button" class="text-button" data-study-close>Retour</button></div><div class="opening-study-board">'+cells+'</div><p class="opening-study-feedback">'+esc(ply>=line.length?"Ligne terminée ! Tu as parcouru toute la variante.":feedback)+'</p><div class="opening-study-actions"><span>'+ply+' / '+line.length+' demi-coups</span><button type="button" data-study-restart>Recommencer</button></div></div>';
-  root.querySelectorAll(".chess-piece-image").forEach(img=>img.addEventListener("error",()=>{const fallback=document.createElement("span");fallback.className="piece";fallback.textContent=img.alt;img.replaceWith(fallback);},{once:true}));
+  const files=userSide==="w"?"abcdefgh":"hgfedcba",ranks=userSide==="w"?[8,7,6,5,4,3,2,1]:[1,2,3,4,5,6,7,8];
+  let cells="";ranks.forEach(rank=>[...files].forEach(file=>{const sq=file+rank,p=board.get(sq),light=((rank-1+(file.charCodeAt(0)-97))%2)===1;let cls="opening-square "+(light?"light":"dark")+(selected===sq?" selected":"");cells+='<button type="button" class="'+cls+'" data-study-square="'+sq+'" aria-label="'+sq+'">'+(p?'<img class="chess-piece-image" src="https://lichess1.org/assets/piece/cburnett/'+p.color+p.type.toUpperCase()+'.svg" alt="'+glyph[p.color+p.type]+'">':"")+'</button>';}));
+  const next=ply<line.length?line[ply]:null;
+  const orient=sq=>{let file=sq.charCodeAt(0)-97,rank=Number(sq[1])-1;if(userSide==="b"){file=7-file;rank=7-rank;}return {x:file*12.5+6.25,y:(7-rank)*12.5+6.25};};
+  let arrowSvg="";if(next){const a=orient(next.slice(0,2)),b=orient(next.slice(2,4));arrowSvg='<svg class="opening-study-arrows" viewBox="0 0 100 100" aria-hidden="true"><defs><marker id="studyArrowHead" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto"><path d="M0 0L4 2L0 4Z" fill="#8de06c"/></marker></defs><line x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" stroke="#8de06c" stroke-width="1.8" stroke-linecap="round" marker-end="url(#studyArrowHead)" opacity=".95"/></svg>';}
+  overlay.innerHTML='<div class="opening-study-page"><header class="opening-study-top"><div><p class="eyebrow">ENTRAÎNEMENT DU RÉPERTOIRE</p><h2>'+esc(variant.name)+'</h2><p class="muted">'+esc(game.opening||game.displayOpening||"Ligne issue de ton répertoire")+'</p></div><button type="button" class="secondary-button" data-study-close>← Retour aux ouvertures</button></header><div class="opening-study-content"><div class="opening-study-board-wrap"><div class="opening-study-board">'+cells+'</div>'+arrowSvg+'</div><aside class="opening-study-side"><span class="engine-badge ready">'+(ply>=line.length?"Ligne terminée":"À toi de jouer")+'</span><h3>'+(ply>=line.length?"Bravo, ligne terminée !":"Joue le coup indiqué")+'</h3><p>'+esc(ply>=line.length?"Tu as parcouru toute la variante. Recommence pour la mémoriser.":feedback)+'</p><div class="opening-study-progress"><strong>'+ply+' / '+line.length+'</strong><span>demi-coups parcourus</span></div><button type="button" class="primary-button" data-study-restart>Recommencer la ligne</button></aside></div></div>';
+  overlay.querySelectorAll(".chess-piece-image").forEach(img=>img.addEventListener("error",()=>{const fallback=document.createElement("span");fallback.className="piece";fallback.textContent=img.alt;img.replaceWith(fallback);},{once:true}));
  };
- root.onclick=event=>{
-  if(event.target.closest("[data-study-close]")){root.hidden=true;root.innerHTML="";return;}
-  if(event.target.closest("[data-study-restart]")){board=new Chess();ply=0;selected=null;feedback="Recommence la ligne depuis la position initiale.";autoReply();draw();return;}
+ overlay.addEventListener("click",event=>{
+  if(event.target.closest("[data-study-close]")){close();return;}
+  if(event.target.closest("[data-study-restart]")){board=new Chess();ply=0;selected=null;feedback="Suis la flèche pour jouer le prochain coup de la ligne.";autoReply();draw();return;}
   const square=event.target.closest("[data-study-square]");if(!square||ply>=line.length||board.turn()!==userSide)return;
   const sq=square.dataset.studySquare,piece=board.get(sq);
   if(!selected){if(piece&&piece.color===userSide){selected=sq;draw();}return;}
   if(piece&&piece.color===userSide){selected=sq;draw();return;}
   const legal=board.moves({square:selected,verbose:true}).find(m=>m.to===sq);if(!legal){selected=null;draw();return;}
-  const uci=legal.from+legal.to+(legal.promotion||"");if(uci!==line[ply]){feedback="Ce coup est légal, mais il ne suit pas la variante étudiée. Essaie une autre idée.";selected=null;draw();return;}
-  board.move({from:legal.from,to:legal.to,promotion:legal.promotion||"q"});ply++;selected=null;feedback="Bien joué. Observe la réponse de l’adversaire et prépare la suite.";autoReply();draw();
- };
+  const played=legal.from+legal.to+(legal.promotion||"");if(played!==line[ply]){feedback="Ce coup ne suit pas la ligne. Regarde la flèche et essaie à nouveau.";selected=null;draw();return;}
+  board.move({from:legal.from,to:legal.to,promotion:legal.promotion||"q"});ply++;selected=null;feedback="Bien joué. Observe la réponse adverse, puis suis la prochaine flèche.";autoReply();draw();
+ });
  draw();
 }
 function exercisePositions(group,side){
