@@ -11,22 +11,29 @@ Application web personnelle en français, conçue pour être utilisée sur ordin
 - Récupération des archives publiques Chess.com (trois derniers mois).
 - Import manuel de fichiers PGN.
 - Statistiques de résultats et liste des parties.
-- Conservation locale des parties dans le navigateur.
+- Conservation locale des parties dans le navigateur, avec stockage de développement séparé.
+- Puzzles quotidiens et exercices personnalisés créés à partir des erreurs détectées dans tes parties analysées.
+- Parcours pédagogique de 20 leçons interactives en tactique, calcul, stratégie, finales et ouvertures, avec suivi et reprise de la dernière leçon.
 - Manifeste et service worker pour préparer l'installation comme application web.
 
 ## Publication gratuite avec GitHub Pages
-Dans le dépôt GitHub :
-1. Ouvrir **Settings**.
-2. Dans le menu **Pages**, choisir **Deploy from a branch**.
-3. Choisir la branche **main** et le dossier **/(root)**, puis **Save**.
-4. Attendre la publication. L'adresse attendue est `https://thib1950.github.io/coach-echecs/`.
+Le déploiement est automatisé par GitHub Actions à chaque mise à jour de la branche `main`. L'application est publiée à l'adresse `https://thib1950.github.io/coach-echecs/`.
 
 ## Confidentialité
-Le dépôt contient le code de l'application, pas les parties personnelles. Les parties importées sont conservées dans le stockage local du navigateur. Ne publie pas de fichiers PGN personnels dans le dépôt.
+Le dépôt contient le code de l'application, pas les parties personnelles. Les parties importées sont conservées dans le stockage local du navigateur. La version de développement utilise une clé distincte (`coach-echecs-v1`). Au premier lancement, elle copie les parties de la version stable si elles sont présentes dans ce navigateur, sans modifier la clé stable. Les deux versions évoluent ensuite indépendamment. Ne publie pas de fichiers PGN personnels dans le dépôt.
 
-## Prochaines étapes
-1. Vérifier la synchronisation Chess.com sur Safari et les éventuelles restrictions CORS.
-2. Ajouter un échiquier interactif et la navigation coup par coup.
-3. Intégrer Stockfish WebAssembly avec des réglages adaptés à l'iPad.
-4. Analyser les erreurs, les occasions manquées, les ouvertures et les finales.
-5. Construire des exercices et un programme de progression personnalisés.
+## Refonte de l'interface
+- Navigation simplifiée et accueil redessiné avec tableau de bord, accès rapides et historique récent.
+- Palette claire et discrète, cartes homogènes et adaptation ordinateur / iPad.
+- Précision d'analyse recalculée sur les coups évaluables, sans intégrer les coups d'ouverture classés en théorie.
+
+## Fonctionnalités en développement
+- Tableau de bord, historique et statistiques des parties.
+- Analyse des parties avec Stockfish et relecture des coups.
+- Mode libre avec coups légaux, évaluation et flèches.
+- Répertoire d'ouvertures et entraînement des variantes.
+- Puzzle quotidien, positions personnalisées issues des erreurs analysées et sessions de cinq exercices ciblés.
+- Suivi local des puzzles résolus, des sessions et des erreurs, indépendant des données de la version stable.
+- 20 leçons interactives réparties en cinq parcours, avec sauvegarde de la progression.
+
+Cette version constitue la version publiée de l'application.
