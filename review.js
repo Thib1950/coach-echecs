@@ -25,7 +25,7 @@ function ensureOpeningName(game){
 }
 function coachMessage(detail){
  if(!detail)return {title:"Position en cours",body:"Je vérifie les possibilités de cette position. Le meilleur coup et son idée apparaîtront ici.",tip:""};
- const userSide=((active?.white||"").toLowerCase()==="gone_1950"?"w":"b");
+ const userSide=((active?.white||"").toLowerCase()===String(window.CoachApp?.getUsername?.()||"").toLowerCase()?"w":"b");
  const openingName=frenchOpeningName(active?.opening||active?.displayOpening||"").trim();
  if(openingName&&Number(detail.ply)<=5){
   const name=openingName.toLowerCase();let idea="Cette ouverture cherche à développer rapidement les pièces, contrôler le centre et préparer la mise en sécurité du roi.";
@@ -99,7 +99,7 @@ function historicalCounterOpening(){
  try{
   const games=window.CoachApp?.getGames?.()||[],current=new Chess();current.loadPgn(active?.pgn||"");const first=current.history({verbose:true})[0];if(!first||first.color!=="w")return null;const key=first.from+first.to+(first.promotion||"");const groups=new Map();
   for(const game of games){
-   if((game.black||"").toLowerCase()!=="gone_1950"||!game.pgn)continue;
+   if((game.black||"").toLowerCase()!==String(window.CoachApp?.getUsername?.()||"").toLowerCase()||!game.pgn)continue;
    const board=new Chess();board.loadPgn(game.pgn);const firstMove=board.history({verbose:true})[0];
    if(!firstMove||firstMove.color!=="w"||firstMove.from+firstMove.to+(firstMove.promotion||"")!==key)continue;
    const name=frenchOpeningName(game.opening||game.displayOpening||"");if(!name)continue;
@@ -132,7 +132,7 @@ function render(){
  const lastPv=variationIndex>0?pv[variationIndex-1]:null;
  const pvSquares=lastPv?[lastPv.slice(0,2),lastPv.slice(2,4)]:[];
 
- const orientation=(active&&(active.black||"").toLowerCase()==="gone_1950")?"black":"white";
+ const orientation=(active&&(active.black||"").toLowerCase()===String(window.CoachApp?.getUsername?.()||"").toLowerCase())?"black":"white";
  const selectedSquares=freeSelected?[freeSelected]:[];
  const legalMoves=freeBoard&&freeSelected?freeBoard.moves({square:freeSelected,verbose:true}):[];
  const legalTargets=new Map(legalMoves.map(m=>[m.to,m.captured?"capture":"move"]));
@@ -177,21 +177,23 @@ function render(){
  const pvPanel=detail&&pvLine?'<div class="pv-panel"><div class="pv-heading"><strong>Suite possible</strong><span>Touche un coup pour suivre la ligne</span></div><div class="pv-moves"><button type="button" class="pv-step '+(variationIndex===0?"active":"")+'" data-pv-step="0">Départ</button>'+pvLine+'</div></div>':"";
  const lastMoveDetail=active?.analysis?.positionDetails?.[index-1]||null;
  const responseDetail=active?.analysis?.positionDetails?.[index]||null;
- const userSide=((active?.white||"").toLowerCase()==="gone_1950"?"w":"b");
+ const userSide=((active?.white||"").toLowerCase()===String(window.CoachApp?.getUsername?.()||"").toLowerCase()?"w":"b");
  const coachDetail=!freeBoard&&index>0?(activeAnalysisMove||(lastMoveDetail?.color!==userSide&&responseDetail?{...responseDetail,contextOpponent:true,opponentMove:lastMoveDetail}:lastMoveDetail)):null;
  const coach=coachMessage(coachDetail);
  const freeCoachText=freeAnalysis?(freeAnalysisError?freeAnalysisError+" Dernière recommandation : "+(freeAnalysis.bestSan||"un coup actif")+".":"Stockfish conseille "+(freeAnalysis.bestSan||"un coup actif")+" pour la suite de la position."):(freeAnalysisError||"Analyse de la position en cours…");
  const coachPanel='<aside class="review-side"><section class="coach-card"><div class="coach-avatar" aria-hidden="true">♞</div><div class="coach-identity"><strong>Ton coach</strong><span>'+(freeBoard?"Analyse en direct":"Analyse du coup")+'</span></div><div class="coach-message"><strong>'+esc(freeBoard?(freeAnalysis?"Position analysée":"Analyse en cours"): (coachDetail?coach.title:"Choisis un coup"))+'</strong>'+(freeBoard?'<p>'+esc(freeCoachText)+'</p>':(coachDetail?'<p>'+esc(coach.body)+'</p>':'<p>Avance dans la partie pour afficher l’explication du coup et la meilleure idée.</p>'))+'</div></section></aside>';
  const controls=freeBoard
-  ?'<div class="replay-controls free-navigation"><button class="icon-nav" data-free-reset="1" title="Revenir à la position de départ" aria-label="Revenir à la position de départ">|◀</button><button class="icon-nav" data-free-undo="1" '+(freeBoard.history().length?"":"disabled")+' title="Annuler le coup" aria-label="Annuler le coup">◀</button><button class="icon-nav" data-free-redo="1" '+(freeRedo.length?"":"disabled")+' title="Rejouer le coup annulé" aria-label="Rejouer le coup annulé">▶</button><button class="review-free-exit" data-free-exit="1">Reprendre la relecture</button></div>'
-  :'<div class="replay-controls"><button class="icon-nav" data-review-start="1" title="Revenir au début" aria-label="Revenir au début"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M19 6 8 12l11 6z"/></svg></button><button class="icon-nav" data-review-step="-1" '+(index===0?"disabled":"")+' title="Coup précédent" aria-label="Coup précédent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button><button class="icon-nav" data-review-step="1" '+(index===moves.length?"disabled":"")+' title="Coup suivant" aria-label="Coup suivant"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button><button class="icon-nav" data-review-end="1" title="Aller à la fin" aria-label="Aller à la fin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5v14M5 6l11 6-11 6z"/></svg></button><button class="review-free-start" data-free-start="1">Tester cette position</button></div>';
+  ?'<div class="replay-controls free-navigation"><div class="replay-nav-group"><button class="icon-nav" data-free-reset="1" title="Revenir à la position de départ" aria-label="Revenir à la position de départ">|◀</button><button class="icon-nav" data-free-undo="1" '+(freeBoard.history().length?"":"disabled")+' title="Annuler le coup" aria-label="Annuler le coup">◀</button><button class="icon-nav" data-free-redo="1" '+(freeRedo.length?"":"disabled")+' title="Rejouer le coup annulé" aria-label="Rejouer le coup annulé">▶</button></div><button class="review-free-exit" data-free-exit="1">Reprendre la relecture</button></div>'
+  :'<div class="replay-controls"><div class="replay-nav-group"><button class="icon-nav" data-review-start="1" title="Revenir au début" aria-label="Revenir au début"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M19 6 8 12l11 6z"/></svg></button><button class="icon-nav" data-review-step="-1" '+(index===0?"disabled":"")+' title="Coup précédent" aria-label="Coup précédent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button><button class="icon-nav" data-review-step="1" '+(index===moves.length?"disabled":"")+' title="Coup suivant" aria-label="Coup suivant"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button><button class="icon-nav" data-review-end="1" title="Aller à la fin" aria-label="Aller à la fin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5v14M5 6l11 6-11 6z"/></svg></button></div><button class="review-free-start" data-free-start="1">Tester cette position</button></div>';
  const clearButton=manualHighlights.size?'<button type="button" class="clear-highlights" data-clear-highlights="1">Effacer les surbrillances</button>':'';
- $("game-replay-area").innerHTML='<article class="surface replay-card" id="active-game-review"><div class="surface-heading"><div><p class="eyebrow">RELECTURE DE TA PARTIE</p><h3>Rejouer et comprendre</h3><p class="muted">'+esc(active.date||"Partie")+' · '+esc(active.white||"Blancs")+' – '+esc(active.black||"Noirs")+'</p></div><span class="engine-badge '+(analysisMoves.length?"ready":"")+'">'+(analysisMoves.length?"Analyse disponible":"Relecture")+'</span></div><p class="review-position-label">'+esc(label)+' · '+(freeBoard?"position libre":index+' / '+moves.length+' demi-coups')+'</p><div class="replay-layout"><div class="replay-board-column"><div class="replay-board-wrap">'+evalMarkup+'<div class="replay-board">'+cells+arrows+'</div></div>'+controls+clearButton+pvPanel+'</div>'+coachPanel+'</div></article>';
+ $("game-replay-area").innerHTML='<article class="surface replay-card" id="active-game-review"><div class="surface-heading"><div><p class="eyebrow">RELECTURE DE TA PARTIE</p><p class="muted">'+esc(active.date||"Partie")+' · '+esc(active.white||"Blancs")+' – '+esc(active.black||"Noirs")+'</p></div><span class="engine-badge '+(active?.analysis?.partial?"loading":analysisMoves.length?"ready":"")+'">'+(active?.analysis?.partial?"Analyse en cours":analysisMoves.length?"Analyse disponible":"Relecture")+'</span></div><p class="review-position-label">'+esc(label)+' · '+(freeBoard?"position libre":index+' / '+moves.length+' demi-coups')+'</p><div class="replay-layout"><div class="replay-board-column"><div class="replay-board-wrap">'+evalMarkup+'<div class="replay-board">'+cells+arrows+'</div></div>'+controls+clearButton+pvPanel+'</div>'+coachPanel+'</div>'+(window.CoachAnalysisSummaryHTML||"")+'</article>';
  $("game-replay-area").querySelectorAll(".chess-piece-image").forEach(img=>img.addEventListener("error",()=>{const fallback=document.createElement("span");fallback.className="piece";fallback.textContent=img.alt;img.replaceWith(fallback);},{once:true}));
 
 }
 function open(id){
- document.querySelector('[data-tab="training"]')?.click();
+ window.CoachAnalysisSummaryHTML="";
+ document.querySelector('[data-tab="games"]')?.click();
+ $("panel-games")?.classList.add("reviewing-game");
  const game=(window.CoachApp?.getGames?.()||[]).find(g=>String(g.id)===String(id));
  if(!game){$("game-replay-area").innerHTML='<div class="empty-state">Partie introuvable dans les données de cet appareil.</div>';return false;}
  if(!game.pgn){$("game-replay-area").innerHTML='<div class="empty-state">Le PGN de cette partie est absent. Réimporte-la pour la rejouer.</div>';return false;}
@@ -210,21 +212,7 @@ function showAnalysisMove(move){
  activeAnalysisMove=move;index=move.ply;variationIndex=0;freeBoard=null;freeSelected=null;freeRedo=[];freeAnalysis=null;freeAnalysisError="";freeLastMove="";freeAnalysisSeq++;render();
  $("active-game-review")?.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
-let moveAudioContext=null;
-function playMoveSound(direction,capture=false){
- try{
-  const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return;
-  if(!moveAudioContext)moveAudioContext=new AudioCtx();
-  const ctx=moveAudioContext;if(ctx.state==="suspended")ctx.resume();
-  const duration=capture?0.105:0.07;
-  const buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*duration),ctx.sampleRate),data=buffer.getChannelData(0);
-  for(let i=0;i<data.length;i++){const fade=1-i/data.length;data[i]=(Math.random()*2-1)*fade*fade;}
-  const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
-  source.buffer=buffer;filter.type="bandpass";filter.frequency.value=capture?520:1050;filter.Q.value=0.8;
-  gain.gain.setValueAtTime(0.0001,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(direction<0?0.035:0.065,ctx.currentTime+0.004);gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+duration);
-  source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);source.start();source.stop(ctx.currentTime+duration);
- }catch(error){console.debug("Son des coups indisponible",error);}
-}
+function playMoveSound(direction,capture=false){window.CoachSound?.play({captured:capture});}
 async function analyzeFreePosition(){
  if(!freeBoard)return;const seq=++freeAnalysisSeq;freeAnalysisError=freeAnalysis?"Stockfish actualise l’évaluation…":"Stockfish analyse la position…";render();
  try{if(!window.CoachAnalysis?.analyzePosition)throw new Error("Le moteur d’analyse n’est pas disponible.");const result=await window.CoachAnalysis.analyzePosition(freeBoard.fen());if(seq!==freeAnalysisSeq||!freeBoard)return;freeAnalysis=result;freeAnalysisError="";}
@@ -270,3 +258,4 @@ function updateAnalysis(list,game){
 }
 window.CoachReview={open,setAnalysis,updateAnalysis,showAnalysisMove};
 window.addEventListener("coach:review-game",event=>open(event.detail?.gameId));
+window.addEventListener("coach:account-changed",()=>{active=null;moves=[];index=0;analysisMoves=[];activeAnalysisMove=null;variationIndex=0;freeBoard=null;freeSelected=null;freeRedo=[];freeAnalysis=null;freeAnalysisError="";freeLastMove="";freeAnalysisSeq++;render();});
